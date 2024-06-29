@@ -2050,7 +2050,7 @@
   ;; Interrupt char 22
   '(progn
     (cprin1 -2 "~%~%    Verbosity level was " *verbosity* "; new value: ")
-    (let ((r (read)))
+    (let ((r (read*)))
       (and (fixp r)
            (setf *verbosity* r)))))
 
@@ -2081,7 +2081,7 @@
            (setf *last-edited* *editpx*))
           (*editpx*
            (cprin1 0 "EU complaining:  not an existing unit name!~%What did you really mean to type?  ")
-           (eu (read))
+           (eu (read*))
            nil)
           ;; Here *editpx* is nil, we didn't give it any args so it uses last-edited
           ((setf *editpx* *last-edited*)
@@ -2203,10 +2203,17 @@
 ;;;;--------------------------
 ;;;; TUI input & output
 
+(defun read* ()
+  "Fix for cmdline use, forces any output before reading input"
+  (force-output)
+  (read))
+
 (defun yes-no (&optional i prompt)
   (when (and prompt (null i))
     (cprin1 -1 "~%" prompt " (Y or N): "))
-  (memb (or i (read))
+  (memb (or i (progn
+                (force-output)
+                (read*)))
         '(y yes)))
 
 (defun cprin1 (verbosity &rest args)
