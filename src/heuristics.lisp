@@ -1515,7 +1515,7 @@
 (defheuristic h22
   isa (heuristic op anything)
   english "IF instances of a unit have been found, THEN place a task on the Agenda to see if any of them are unusually interesting"
-  if-potentially-relevant null
+  if-potentially-relevant #'null
   worth 500
   abbrev "Check instances of a unit for gems"
   if-finished-working-on-task (lambda (task)
@@ -1542,9 +1542,8 @@
 (defheuristic h23
   isa (heuristic op anything)
   english "IF the current task is to find interesting examples of a unit, and it has some known examples already, THEN look over examples of the unit, and see if any of them are interesting"
-  if-potentially-relevant null
+  if-potentially-relevant #'null
   worth 700
-  ;; TODO - what does this mean?
   abbrev "Some exs (u) may be interesting"
   if-working-on-task (lambda (task)
                        (and (is-a-kind-of *cur-slot* 'int-examples)
@@ -1578,7 +1577,7 @@
 
 (defheuristic h24
   isa (heuristic op anything)
-  english  "IF trying to see if a category is interesting, THEN see if all its examples satisfy the same, interesting, preferably rare predicate"
+  english "IF trying to see if a category is interesting, THEN see if all its examples satisfy the same, interesting, preferably rare predicate"
   if-potentially-relevant (lambda (f)
                             ;; ORIG: Note this is one of the rare rules which is used both to
                             ;;       see if a unit f is interesting, via WorkOnUnit and via

@@ -176,7 +176,7 @@
                   parallel-replace-2 each-element-is-a unary-op type-of-structure parallel-replace
                   coalesce bag-difference o-set-difference list-difference set-difference
                   struc-difference bag-union list-union o-set-union struc-union bag-intersect
-                  o-set-intersect list-intersect struct-intersect set-union set-intersect ord-struc-op
+                  o-set-intersect list-intersect struc-intersect set-union set-intersect ord-struc-op
                   ord-struc-equal bag-equal list-equal o-set-equal suf-defn nec-defn un-ord-struc
                   ord-struc no-mult-ele-struc o-set-delete o-set-op o-set-insert o-set
                   mult-ele-struc-delete-1 mult-ele-struc-op mult-ele-struc bag-delete-1 bag-delete bag-op
@@ -187,14 +187,14 @@
                   conjecture-about conjectures constant-binary-pred constant-pred
                   constant-unary-pred creditors criterial-slot data-type defn direct-applics
                   divisors-of domain dont-copy double-check eq equal elim-slots english even-num
-                  examples failed-record failred-record-for fast-alg fast-defn format
+                  examples failed-record failed-record-for fast-alg fast-defn format
                   generalizations generator good-choose good-subset h1 h10 h11 h12 h13 h14 h15
                   h16 h17 h18 h19 h19-criterial h2 h20 h21 h3 h4 h5 h5-criterial h5-good h6 h7 h8
                   hind-sight-rule IEQP IGEQ IGREATERP ILEQ ILESSP if-about-to-work-on-task
                   if-finished-working-on-task if-parts if-potentially-relevant if-task-parts
                   if-truly-relevant if-working-on-task in-domain-of indirect-applics inverse isa
                   is-range-of iterative-alg iterative-defn math-concept math-obj math-op math-pred
-                  multiply n-number non-criterial-slot non-examples num-op OR odd-num op
+                  multiply nnumber non-criterial-slot non-examples num-op OR odd-num op
                   overall-record perf-num perf-square pred prime-num proto-conjec random-choose
                   random-subset range record record-for record-slot recursive-alg recursive-defn
                   repr-concept set set-equal set-of-numbers set-op sib-slots slot specializations
@@ -764,7 +764,8 @@
       (eq 'failed (car (last v)))
       (addprop a p v flag)))
 
-(defun union-prop-l (a p v flag kidding)
+;; TODO - only called once, from h24
+(defun union-prop-l (a p v &optional flag kidding)
   (or kidding (dolist (x v)
                 (union-prop a p x flag))))
 
@@ -813,7 +814,6 @@
               (best-score (funcall test best-item)))
          ;; ...and test each subsequent value
          (dolist (item (cdr list))
-           (cprin1 0 "DEBUG maximum item " item " tested " (funcall test item) "~%")
            (let ((score (funcall test item)))
              (when (> score best-score)
                (setf best-item item)
@@ -2174,7 +2174,7 @@
   (cprin1 20 "~%")
   '!)
 
-(defun start (eternal-flag)
+(defun start (&optional eternal-flag)
   (cycle-through-agenda)
   (let ((units-focused-on nil)
         (uu nil))
@@ -2732,7 +2732,7 @@
                   if-finished-working-on-task if-parts if-potentially-relevant if-task-parts
                   if-truly-relevant if-working-on-task in-domain-of indirect-applics inverse isa
                   is-range-of iterative-alg iterative-defn math-concept math-obj math-op math-pred
-                  multiply n-number non-criterial-slot non-examples num-op or odd-num op
+                  multiply nnumber non-criterial-slot non-examples num-op or odd-num op
                   overall-record perf-num perf-square pred prime-num proto-conjec random-choose
                   random-subset range record record-for record-slot recursive-alg recursive-defn
                   repr-concept set set-equal set-of-numbers set-op sib-slots slot specializations
@@ -4512,6 +4512,7 @@
 
 (defunit compose
   isa (math-concept math-op op anything binary-op)
+  worth 990
   arity 2
   domain (op op)
   range (op)
