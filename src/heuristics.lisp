@@ -105,7 +105,7 @@
 (defheuristic h2
   isa (heuristic op anything)
   english "IF you have just finished a task, and some units were created, and one of the creators has the property of spewing garbage, THEN stuff that spewer"
-  if-potentially-relevant #'NULL ;; TODO - never relevant? has this heuristic been disabled? is this the equivalent of NIL? it probably always returns NIL because the parameter is always a non-nil Unit? or is this actually passed NIL in some circumstances where this should fire?
+  if-potentially-relevant NULL ;; TODO - never relevant? has this heuristic been disabled? is this the equivalent of NIL? it probably always returns NIL because the parameter is always a non-nil Unit? or is this actually passed NIL in some circumstances where this should fire?
 
   worth 700
   abbrev "Kill a concept that leads to lots of garbage"
@@ -166,7 +166,7 @@
 (defheuristic h3
   isa (heuristic op anything)
   english "IF the current task is to specialize a unit, but no specific slot to specialize is yet known, THEN choose one"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 101
   applics ((sit1) (win1 los1))
   abbrev "Randomly choose a slot to specialize"
@@ -206,7 +206,7 @@
 (defheuristic h4
   isa (heuristic op anything)
   english "IF a new unit has been synthesized, THEN place a task on the Agenda to gather new empirical data about it"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 703
   applics (((sit1)
             (win1 los1)))
@@ -240,7 +240,7 @@
 (defheuristic h5
   isa (heuristic op anything)
   english "IF the current task is to specialize a unit, and no specific slot has been chosen to be the one changed, THEN randomly select which slots to specialize"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 151
   applics (((sit1)
             (win1 los1))
@@ -296,7 +296,7 @@
 (defheuristic h5-criterial
   isa (heuristic op anything)
   english "IF the current task is to specialize a unit, and no specific slot has been chosen to be the one changed, THEN randomly select which criterial slots to specialize."
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Choose some particular criterial slots of u to specialize"
   if-working-on-task (lambda (task)
@@ -348,7 +348,7 @@
 (defheuristic h5-good
   isa (heuristic op anything)
   english "IF the current task is to specialize a unit, and no specific slot has been chosen to be the one changed, THEN choose a good set of sllots to specialize"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Choose some particular good slots of u to specialize"
   if-working-on-task (lambda (task)
@@ -397,7 +397,7 @@
 (defheuristic h6
   isa (heuristic op anything)
   english "IF the current task is to specialize a unit, and a slot has been chosen to be the one changed, THEN randomly select a part of it and specialize that part"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Specialize a given slot of a given unit"
   if-working-on-task (lambda (task)
@@ -537,7 +537,7 @@
 (defheuristic h8
   isa (heuristic op anything)
   english "IF the current task is to find application-instances of a unit, and it has a algorithm, THEN look over instances of generalizations of the unit, and see if any of them are valid application-instances of this as well"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   ;; TODO - are the sublists in here evaluated?
   abbrev (Applics (u) may be found against Applics (genl (u)))
@@ -559,7 +559,7 @@
                                (length *new-values*) " " 'applics "~%")
                        (cprin1 48 "     Namely: " *new-values* "~%")
                        t)
-  ;; TODO - the lambda had a 2nd parameter *domain-tests*, but unless mapapplics actually ran the other uses, this doesn't make sense for dynamic scope.
+  ;; TODO - the lambda had a 2nd parameter *domain-tests*, but unless map-applics actually ran the other uses, this doesn't make sense for dynamic scope.
   then-compute (lambda (task) ;; *domain-tests*
                  (declare (ignore task))
                  ;; Commented-out source code
@@ -571,20 +571,20 @@
                  (setf *cur-val* (funcall *cur-slot* *cur-unit*))
                  (setf *domain-tests* (mapcar #'defn (domain *cur-unit*)))
                  (dolist (z *space-to-use*)
-                   (mapapplics z (lambda (i temp)
-                                   (and (not (known-applic *cur-unit* (applic-args i)))
-                                        (equal (length *domain-tests*)
-                                               (applic-args i))
-                                        ;; TODO - verify translation of "(for DT in DomainTests as A in (ApplicArgs I) ..."
-                                        ;; TODO - could be a 2-list mapc as well
-                                        (loop for dt in *domain-tests*
-                                              for a in (applic-args i)
-                                              always (funcall dt a))
-                                        ;; TODO - orig (errorset '(apply *alg-to-use* (applic-args i)) 'nobreak)
-                                        ;;  The 'nobreak portion disables breaks for timeout or something? not sure
-                                        (setf temp (ignore-errors (apply *alg-to-use* (applic-args i))))
-                                        (union-prop *cur-unit* 'applics (list (applic-args i) (car temp)))))
-                               100))
+                   (map-applics z (lambda (i temp)
+                                    (and (not (known-applic *cur-unit* (applic-args i)))
+                                         (equal (length *domain-tests*)
+                                                (applic-args i))
+                                         ;; TODO - verify translation of "(for DT in DomainTests as A in (ApplicArgs I) ..."
+                                         ;; TODO - could be a 2-list mapc as well
+                                         (loop for dt in *domain-tests*
+                                               for a in (applic-args i)
+                                               always (funcall dt a))
+                                         ;; TODO - orig (errorset '(apply *alg-to-use* (applic-args i)) 'nobreak)
+                                         ;;  The 'nobreak portion disables breaks for timeout or something? not sure
+                                         (setf temp (ignore-errors (apply *alg-to-use* (applic-args i))))
+                                         (union-prop *cur-unit* 'applics (list (applic-args i) (car temp)))))
+                                100))
                  (and (setf *new-values* (set-difference (applics *cur-unit*)
                                                          *cur-val*))
                       ;; TODO - does the differing value between PUSH and (setf *task-results* (cons ...)) make a difference here?
@@ -604,9 +604,9 @@
 (defheuristic h9
   isa (heuristic op anything)
   english "IF the current task is to find examples of a unit, and it has a definition, THEN look over instances of generalizations of the unit, and see if any of them are valid examples of this as well"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
-  abbrev (Ecx (u) mau be foun amongst Exs (genl (u)))
+  abbrev "Ecx (u) may be found amongst Exs (genl (u))"
   if-working-on-task (lambda (task)
                        (declare (ignore task))
                        (and (eq *cur-slot* 'examples)
@@ -626,19 +626,19 @@
                  (let ((*user-impatience* (max 1 (floor *user-impatience*
                                                         (max 1 (length *space-to-use*))))))
                    (dolist (z *space-to-use*)
-                     (mapexamples z (lambda (i)
-                                      ;; ORIG: If the proposed example is already on Examples,
-                                      ;;       or already on NonExamples, then we can stop immediately
-                                      (and (not (member i (examples *cur-unit*)))
-                                           (not (member i (non-examples *cur-unit*)))
-                                           (cond
-                                             ((funcall *defn-to-use* i)
-                                              (cprin1 57 "+")
-                                              t)
-                                             (t (cprin1 59 "-")
-                                                nil))
-                                           (union-prop *cur-unit* 'examples i)))
-                                  400)
+                     (map-examples z (lambda (i)
+                                       ;; ORIG: If the proposed example is already on Examples,
+                                       ;;       or already on NonExamples, then we can stop immediately
+                                       (and (not (member i (examples *cur-unit*)))
+                                            (not (member i (non-examples *cur-unit*)))
+                                            (cond
+                                              ((funcall *defn-to-use* i)
+                                               (cprin1 57 "+")
+                                               t)
+                                              (t (cprin1 59 "-")
+                                                 nil))
+                                            (union-prop *cur-unit* 'examples i)))
+                                   400)
                      (and (setf *new-values* (set-difference (examples *cur-unit*) *cur-val*))
                           (push (list 'new-values (list *cur-unit* *cur-slot* *new-values*
                                                         (list "By examining examples of" *space-to-use*
@@ -654,7 +654,7 @@
 (defheuristic h10
   isa (heuristic op anything)
   english "IF the current task is to find examples of a unit, and it is the range of some operation f, THEN gather together the outputs of the I/O pairs stored on Applics of f"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "If C is Range (f), then Exs (C) can be gotten from Applics (f)"
   if-working-on-task (lambda (task)
@@ -715,7 +715,7 @@
 (defheuristic h11
   isa (heuristic op anything)
   english "IF the current task is to find application-instances of a unit f, and it has an Algorithm for computing its values, and it has a Domain, THEN choose examples of its domain component/s, and run the alg for f on such inputs"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Applics (f) may be foun by funning Alg (f) on members of u's Domain)"
   if-working-on-task (lambda (task)
@@ -759,24 +759,24 @@
                               finally (setf n-tried j)))
                      (1 (cond ((generator (car (domain *cur-unit*)))
                                (setf n-tried 0)
-                               (mapexamples (car (domain *cur-unit*))
-                                            (lambda (a)
-                                              (and (not (known-applic *cur-unit* (list a)))
-                                                   (funcall (car *domain-tests*) a)
-                                                   (cprin1 61 "+")
-                                                   (incf n-tried)
-                                                   (union-prop *cur-unit* 'applics
-                                                               `((,a)
-                                                                 ,(funcall *alg-to-use* a)))))
-                                            200))
+                               (map-examples (car (domain *cur-unit*))
+                                             (lambda (a)
+                                               (and (not (known-applic *cur-unit* (list a)))
+                                                    (funcall (car *domain-tests*) a)
+                                                    (cprin1 61 "+")
+                                                    (incf n-tried)
+                                                    (union-prop *cur-unit* 'applics
+                                                                `((,a)
+                                                                  ,(funcall *alg-to-use* a)))))
+                                             200))
                               (t (loop for j from 1 upto 50
                                        do (and (setf args (mapcar (lambda (d)
                                                                     (let ((tmp nil))
                                                                       (cond ((generator d)
                                                                              (let ((lastgen nil))
-                                                                               (mapexamples d (lambda (e)
-                                                                                                (setf lastgen e))
-                                                                                            (rand 1 100))
+                                                                               (map-examples d (lambda (e)
+                                                                                                 (setf lastgen e))
+                                                                                             (rand 1 100))
                                                                                (return lastgen)))
                                                                             ((examples d)
                                                                              (random-choose (examples d)))
@@ -1001,7 +1001,7 @@
                                                                       if-about-to-work-on-task
                                                                       if-working-on-task
                                                                       if-finished-working-on-task))
-                                                     (g-slot -> generalizatios)))))
+                                                     (g-slot -> generalizations)))))
   arity 1)
 
 (defheuristic h14
@@ -1079,7 +1079,7 @@
 (defheuristic h15
   isa (heuristic op anything)
   english "IF the current task is to find examples of a unit, and it is the range of some operation f, THEN gather together the outputs of the I/O pairs stored on Applics of f"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "If C is Range (f), then Exs (C) can be gotten from Applics (f)"
   if-working-on-task (lambda (task)
@@ -1198,7 +1198,7 @@
 (defheuristic h17
   isa (heuristic anything op)
   english "IF the current task is to generalize a unit, and no general slot has been chosen to be the one changed, THEN randomly select which slots to generalize"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 600
   abbrev "Generalize u by generalizing some random slots"
   if-working-on-task (lambda (task)
@@ -1243,7 +1243,7 @@
 (defheuristic h18
   isa (heuristic anything op)
   english "IF the current task is to generalize a unit, and a slot has been chosen to be the one changed, THEN randomly select a part of it and generalize that part"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 704
   abbrev "Generalize a given slot of a given unit"
   if-working-on-task (lambda (task)
@@ -1330,7 +1330,7 @@
 (defheuristic h19
   isa (heuristic op anything)
   english "IF we just created some new units, THEN eliminate any whose slots are equivalent to already-extant units"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 150
   abbrev "Kill any new unit that's the same as an existing one"
   if-finished-working-on-task (lambda (task)
@@ -1370,7 +1370,7 @@
 (defheuristic h19-criterial
   isa (heuristic op anything)
   english "IF we just created some new units, THEN eliminate any whose criterial slots are equivalent to already-extant units"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Kill any new unit which duplicates an already-existing one"
   if-finished-working-on-task (lambda (task)
@@ -1427,7 +1427,7 @@
                                                         (lambda (f2)
                                                           (and (eq (arity f)
                                                                    (arity f2))
-                                                               (> (length (applics f2) 3))))))
+                                                               (> (length (applics f2)) 3)))))
                            (setf *domain-tests* (mapcar #'defn (domain f)))))
   worth 600
   abbrev "Run f on args used for other ops"
@@ -1467,7 +1467,7 @@
 (defheuristic h21
   isa (heuristic op anything)
   english "IF an op u duplicates all the results of u2, THEN conjecture that u is an extension of u2"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 400
   abbrev "See if u is an extension of u2"
   if-working-on-task (lambda (task)
@@ -1500,6 +1500,7 @@
                       (union-prop u2 'extensions *cur-unit*))
                     *res-u*)
   then-compute (lambda (task)
+                 (declare (ignore task))
                  (setf *res-u* (subset *involved-units*
                                        (lambda (u2)
                                          (and (applics u2)
@@ -1515,19 +1516,22 @@
 (defheuristic h22
   isa (heuristic op anything)
   english "IF instances of a unit have been found, THEN place a task on the Agenda to see if any of them are unusually interesting"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 500
   abbrev "Check instances of a unit for gems"
   if-finished-working-on-task (lambda (task)
+                                (declare (ignore task))
                                 (and (is-a-kind-of *cur-slot* (instances *cur-unit*))
                                      (interestingness *cur-unit*)
                                      (funcall *cur-slot* *cur-unit*)))
   then-print-to-user (lambda (task)
+                       (declare (ignore task))
                        (cprin1 13 "A new task was added to the agenda, to see which of the "
                                (length (examples *cur-unit*))
                                " are interesting ones.~%")
                        t)
   then-add-to-agenda  (lambda (task)
+                        (declare (ignore task))
                         (add-to-agenda `((,(average-worths *cur-unit* 'h22)
                                           ,*cur-unit*
                                           ,(car (more-interesting (instances *cur-unit*)))
@@ -1542,18 +1546,21 @@
 (defheuristic h23
   isa (heuristic op anything)
   english "IF the current task is to find interesting examples of a unit, and it has some known examples already, THEN look over examples of the unit, and see if any of them are interesting"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Some exs (u) may be interesting"
   if-working-on-task (lambda (task)
+                       (declare (ignore task))
                        (and (is-a-kind-of *cur-slot* 'int-examples)
                             (setf *defn-to-use* (interestingness *cur-unit*))
                             (setf *space-to-use* (examples *cur-unit*))))
   then-print-to-user (lambda (task)
+                       (declare (ignore task))
                        (cprin1 13 "~%Found " (length *new-values*) " of the " (length (examples *cur-unit*)) " to be interesting.~%")
                        (cprin1 48 "    Namely: " *new-values* "~%")
                        t)
   then-compute (lambda (task)
+                 (declare (ignore task))
                  (setf *cur-val* (funcall *cur-slot* *cur-unit*))
                  (dolist (z *space-to-use*)
                    (if (funcall *defn-to-use* z)
@@ -1589,13 +1596,14 @@
                                                                          (memb p (int-examples 'unary-pred)))
                                                                      (leq-nn (car (rarity p))
                                                                              0.3)))))
-                                 (>= (length (examples *cur-unit*)
-                                             4))
+                                 (>= (length (examples *cur-unit*))
+                                     4)
                                  (setf *cur-unit* f)
                                  (setf *cur-slot* 'why-int)))
   worth 500
   abbrev "See if all examples of a category satisfy the same intereting predicate"
   if-working-on-task (lambda (task)
+                       (declare (ignore task))
                        (and (is-a-kind-of *cur-slot* 'why-int)
                             (memb 'category (isa *cur-unit*))
                             (setf *space-to-use* (subset (examples 'unary-pred)
@@ -1607,6 +1615,7 @@
                             (>= (length (examples *cur-unit*))
                                 4)))
   then-print-to-user (lambda (task)
+                       (declare (ignore task))
                        (cprin1 13 "~%Of the " (length *space-to-use*)
                                " predicates we tried, " (length *reas*)
                                " were found to hold on all examples of " *cur-unit*
@@ -1614,6 +1623,7 @@
                        (cprin1 40 "    Namely, " *reas* "~%")
                        t)
   then-compute (lambda (task)
+                 (declare (ignore task))
                  (setf *reas* (subset *space-to-use*
                                       (lambda (p)
                                         ;; ORIG: See if all examples of CurUnit
@@ -1802,7 +1812,7 @@
 (defheuristic h29
   isa (heuristic op anything)
   english "IF the current task is to find examples of a structure which can have multiple elements, and some are known already, THEN get new ones by mutating the multiplicities of some of the elements of those known structures"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 500
   abbrev "New examples of a kind of MultEleStruc can be found by permuting multiplicities of elements of already-known examples"
   ;; TODO - determine which functional slot return values are meaningful, convert ANDs to WHENs etc for those that aren't
@@ -1850,7 +1860,7 @@
 (defheuristic h-avoid
   isa (heuristic op anything)
   english "IF the current task is to find GSlot of some unit, then make sure that the slot to change isn't any of these: CSlotSibs"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev ("Avoid GSlot created by altering CSlotSibs")
   if-about-to-work-on-task (lambda (task)
@@ -1872,7 +1882,7 @@
 (defheuristic h-avoid-2
   isa (heuristic op anything)
   english "IF the current task is to find GSlot of some unit, then and we did that by altering its CSlot slot, (or ANY of these slots: CSlotSibs) then make sure we didn't change a CFrom into anything"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Avoid GSlot created by altering CFrom in CSlot slot"
   if-finished-working-on-task (lambda (task)
@@ -1912,7 +1922,7 @@
   isa (heuristic op anything)
   ;; TODO - I wonder if RLL also had template strings where it printed list values into here
   english "IF the current task is to find Generalizations of some unit, then and we did that by altering its IfWorkingOnTaskslot, (or ANY of these slots: (IfPotentiallyRelevant IfTrulyRelevant IfAboutToWorkOnTask IfWorkingOnTask IfFinishedWorkingOnTask)) then make sure we didn't change a AND into anything"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Avoid Generalizations created by altering AND in IfWorkingOnTask slot"
   if-finished-working-on-task (lambda (task)
@@ -1950,7 +1960,7 @@
 (defheuristic h-avoid-3
   isa (heuristic op anything)
   english "IF the current task is to find GSlot of some unit, then and we did that by altering its CSlot slot, (or ANY of these slots: CSlotSibs) then make sure we didn't change something into a CTo"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Avoid GSlot created by altering something into a CTo in CSlot slot"
   if-finished-working-on-task (lambda (task)
@@ -1984,7 +1994,7 @@
 (defheuristic h-avoid-3-first
   isa (heuristic op anything)
   english "IF the current task is to find Generalizations of some unit, then and we did that by altering its IfWorkingOnTask slot, (or ANY of these slots; (IfPotentiallyRelevant IfTrulyRelevant IfAboutToWorkOnTask IfWorkingOnTask IfFinishedWorkingOnTask)) then make sure we didn't change something into a TheFirstOf"
-  if-potentially-relevant #'null
+  if-potentially-relevant null
   worth 700
   abbrev "Avoid Generalizations created by altering something into a TheFirstOf in IfWorkingOnTask slot"
   if-finished-working-on-task (lambda (task)
@@ -2021,8 +2031,8 @@
 
 (defheuristic h-avoid-if-working
   isa (heuristic op anything)
-  english "IF the current task is to find Generalizatiosn of some unit, then think twice if the slot to change is IfWorkingOnTask"
-  if-potentially-relevant #'null
+  english "IF the current task is to find Generalizations of some unit, then think twice if the slot to change is IfWorkingOnTask"
+  if-potentially-relevant null
   worth 700
   abbrev "Avoid Generalizations created by altering IfWorkingOnTask"
   if-about-to-work-on-task (lambda (task)

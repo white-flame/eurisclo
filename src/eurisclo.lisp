@@ -1,11 +1,16 @@
-;; Dribble files:
-;;  RLL.DRI[AM,DBL]
-;;  TRACE.MA2[AM,DBL]
-;;  TRACE.MA2[AM,DBL]1
-;;  TRACE.MAR[AM,DBL]
-;;  TR324.6[AM,DBL]
-;;  T329.8[AM,DBL]
-;;  T329.9[AM,DBL]
+;; Dribble/trace files:
+;;  1981-02-26 17:15  EUR[AM,DBL]1
+;;   1981-02-26 17:19  RLL.DRI[AM,DBL]
+;;   1981-03-20 10:44  TRACE.MAR[AM,DBL]
+;;   1981-03-20 12:51  TRACE.MA2[AM,DBL]
+;;   1981-03-20 12:51  TRACE.MA2[AM,DBL]1
+;;  1981-03-20 17:35  EUR[AM,DBL]2
+;;   1981-03-24 15:42  TR324.4[AM,DBL]
+;;   1981-03-24 15:42  TR324.5[AM,DBL]
+;;   1981-03-24 15:43  TR324.6[AM,DBL]
+;;   1981-03-29 20:07  T329.8[AM,DBL]
+;;   1981-03-29 20:07  T329.9[AM,DBL]
+;;  1981-05-19 12:27  EUR[AM,DBL]3  <- this is the version I ported
 
 ;; Searching for RLL:
 ;;  RECORD[RLL,DBL] seems to have a lot, but not all, of RLL docmented functions
@@ -13,14 +18,14 @@
 ;;
 ;;
 ;; Discussions:
-;;  SKLEIN.2[RDG,DBL]
-;;  SKLEIN.3[RDG,DBL]
-;;  SKLEIN.3[RLL,DBL]
-;;  TIN.TEX[RDG,DBL]
-;;  TODO[RDG,DBL] (prior versions, too)
-;;  TODO[RLL,DBL]
-;;  USERS.RLL[RDG,DBL]4 6 8
-;;  BUGS.COR[RDG,DBL]
+;;  1980-09-23 21:06  TIN.TEX[RDG,DBL]  - ontology, maybe for RLL
+;;  1981-12-03 13:29  TODO[RDG,DBL] - prior versions, too, spanning from 1980-08-22
+;;  1981-12-03 13:29  TODO[RLL,DBL]
+;;  1982-01-27 13:27  USERS.RLL[RDG,DBL]4 6 8 - prior versions from 1981-07-31
+;;  1982-02-13 15:36  SKLEIN.2[RDG,DBL]
+;;  1982-02-17 18:01  SKLEIN.3[RDG,DBL]
+;;  1982-07-20 15:01  BUGS.COR[RDG,DBL]
+;;  1982-10-14 13:48  SKLEIN.3[RLL,DBL] - prior versions from 1982-03-19
 
 ;; U, UN, -U etc implies "Unit", which is what a symbol/concept/object is in eurisko, Slots are symbol-plist parameters. Given the number of slots, I think we'll leave it as a p-list implementation for now.  I don't think plist vs hashtable performance is going to be an issue, and there's too many to define a class/structure for all of them. If we need to optimize, we can create a structure for the most common ones, and leave the rest on the plist.
 
@@ -30,7 +35,7 @@
 ;; an O- or Ord- prefix seems to imply ordered (eg a meaningful sequence), vs UnOrd- unordered (eg index is irrelevant, a bag)
 
 ;; -NN function suffix means the parameters can be numeric or nil.
-;; NNumber seems to be a Natural Number, not related to -NN
+;; NNumber seems to be a Natural Number, not related to -NN, or maybe used so as not to conflict with interlisp builtins?
 
 ;; APPLY* becomes FUNCALL?
 
@@ -78,7 +83,7 @@
                      esysprops editp-temp failure-list g-credit g-slot have-genl have-spec heuristic-agenda
                      interp last-edited maybe-failed map-cycle-time min-pri move-defns n-unit-slots need-genl
                      need-spec new-u new-unit new-units new-value new-values not-for-real nf nt old-kb-pu
-                     old-kb-pv old-val old-value pos-cred r-arrow rcu space syspros shorter-nam slot-to-change
+                     old-kb-pv old-val old-value pos-cred r-arrow rcu space sysprops shorter-name slot-to-change
                      slots-to-change slots-to-elim-initially slots special-non-units synth-u tty task-num
                      temp-caches u-diff undo-kill units unused-slots used-slots user-impatience verbosity
                      warn-slots conjec cprintmp)
@@ -109,14 +114,14 @@
 ;; These are all the system properties that can be on symbols, which eurisko needs to skip
 (defparameter *sysprops* '(prototype vartype newcom whenfiled whenunfiled getdef nulldef deldef putdef whenchanged hasdef editdef canfiledef filegetdef filepkgcontents prettytype delfromprettycom addtoprettycom altomacro macro bytemacro dmacro
                            ;; SBCL stuff that's in operators
-                           sb-disassem::instructions))
+                           #+sbcl sb-disassem::instructions))
 
 ;; Note that this shares ALTOMACRO and BYTEMACRO with the builtin SYSPROPS
 (defvar *esysprops* '(altomacro bytemacro sopval opcode))
 
 (setf *sysprops* (cl:union *esysprops* *sysprops* :test #'eq))
 
-(defvar *failure-list '(nil failed))
+(defvar *failure-list* '(nil failed))
 (defvar *gfns* '(average-worths check-2-after-editp create-unit define-slot has-high-worth initialize-eurisko
                  interp1 interp2 kill-unit nu rem1prop run-alg start true-if-it-exists union-prop
                  unitp work-on-task work-on-unit xeq-if-it-exists))
@@ -238,10 +243,14 @@
 (defvar *u-diff* nil
   "TODO - unknown, used in both utilities and heuristics")
 
+;; This dynamic binding var replaces variable R, where in interlisp seems to reference up the call stack without any declarations
+;; Any reference to this used to be a naked variable R in EUR
+(defvar *rule*)
+
 #|
-(setf fontchangeflg nil)
-(setf changesarray nil)
-(setf prompt#flg t)
+(setf fontchangeflg nil)                ; ;
+(setf changesarray nil)                 ; ;
+(setf prompt#flg t)                     ; ;
 |#
 
 (defvar *eurfns* '(apply-eval add-inv add-nn add-prop-l alg all-pairs applic-args applic-gen-args applic-gen-build
@@ -257,7 +266,7 @@
                    generalize-bit generalize-compiled-lisp-code generalize-data-type
                    generalize-dotted-pair generalize-io-pair generalize-lisp-fn generalize-lisp-pred
                    generalize-list generalize-nil generalize-number generalize-slot generalize-text
-                   generalize-unit get-a-bag get-a-list get-a-o-pair get-a-o-set get-a-set get-a-struct
+                   generalize-unit get-a-bag get-a-list get-a-o-pair get-a-o-set get-a-set get-a-struc
                    good-choose good-subset half has-high-worth ISQRT indirect-applics
                    initial-check-inv initial-elim-slots initialize-credit-assignment
                    initialize-eurisko inside-of instances interestingness interp1 interp2 interp2 ;; TODO - duplicated interp2?
@@ -268,7 +277,7 @@
                    new-nam no-repeats-in ok-bin-preds order-tasks PRINBOL PRINTASK pu pu2 percentify
                    punish-severely quoted REM1PROP random-choose randomp random-pair random-subset
                    random-subst random-subst* repeats-in report-on reset-pri rule-taking-too-long
-                   run-alg run-defn SOS SQUARE STAART self-intersect set-diff set-difference
+                   run-alg run-defn SOS SQUARE START self-intersect set-diff set-difference
                    set-intersect set-union shorten sib-slots sibs slot-names slot-subst slotp
                    smart-pack* snazzy snazzy-agenda snazzy-concept snazzy-heuristic snazzy-task
                    some-o-pair some-pair some-uneliminated sort-by-worths specializations
@@ -452,6 +461,10 @@
   (let ((*print-pretty* t))
     (format t "~s~%" expr)))
 
+(defun maprint (list)
+  "Prints a list of stuff with separator and begin/end etc. Usage here only ever gives the list."
+  (prin1 list))
+
 (defun subpair (old new expr &optional flag)
   "Similar to SUBLIS, except that elements of NEW are substituted for corresponding atoms of OLD in EXPR. New structure is created only if needed, or if FLAG=T"
   ;; TODO - the interlisp does tail-matching on (a b . c) with the tail of the NEW list, and not sure what the exact copy rules are yet.  Just punting to CL's subslis for now
@@ -614,7 +627,6 @@
       0
       (/ (float (length (subset l p)))
          (float (length l)))))
-
 ;; TODO - what is OV supposed to be anyway?
 (defun get-a-bag (ov)
   (get-a-list ov))
@@ -979,7 +991,7 @@
   (setf *synth-u* (delete u *synth-u*))
   (setf *slots* (delete u *slots*))
   (loop for s in (copy-list (getproplist u)) by #'cddr
-        do (kill-slot s))
+        do (kill-slot s u))
   (setf *agenda* (subset *agenda* (lambda (ta)
                                     (not (eq u (extract-unit-name ta))))))
   '|.|)
@@ -1114,12 +1126,13 @@
   ;; TODO - does the constructed expression need to be EVAL'd?
   (apply #'run-defn (cons u args)))
 
-(defun apply-rule (r u msg)
+;; TODO - only ever called from h2
+(defun apply-rule (*rule* u msg)
   ;; TODO - comment
   ;; ORIG: Unfortunately, this doesn't check the value of AbortTask...
   (let* ((*arg-unit* u))
     ;; FIX: U was C in here, probably read the caller's C var which was passed in the 2nd param
-    (and (cprin1 75 "~%   Rule " r (abbrev r)
+    (and (cprin1 75 "~%   Rule " *rule* (abbrev *rule*)
                  " is being applied to " U (or msg " ") "~%")
          (every #'xeq-if-it-exists (sub-slots 'then-parts))
          (cprin1 75 "    The Then Parts of the rule have been executed.~%~%"))))
@@ -1167,13 +1180,11 @@
     (setf (symbol-function s) (lambda (unit)
                                 (getprop unit s)))))
 
-(defun kill-slot (s &optional u1 v1)
+(defun kill-slot (s u1 &optional v1)
   (and (slotp s)
        ;; FIX - if U1 wasn't provided, it checked for boundp 'U, which might be a snoop up the call stack?
-       ;;  Changed callers to explicitly set this
-       (or u1
-           (and (boundp 'u)
-                (setf u1 u)))
+       ;;       changed the kill-unit caller to explicitly pass it, everything else uses 2 params
+       ;; TODO - not sure what V1 is, no caller uses it
        (prog1 (let (temp)
                 (cond
                   ((null (or v1 (setf v1 (funcall s u1))))
@@ -1218,7 +1229,7 @@
 ;;;; Non-default slot readers
 
 (defun alg (u)
-  "Search the ALG slot or subslots for a value"
+  "Search the ALG slot or sub-slots for a value"
   (or (getprop u 'alg)
       (find-if (lambda (slot)
                  (funcall slot u))
@@ -1227,11 +1238,12 @@
 (defun defn (u)
   ;; TODO - comment
   (or (getprop u 'defn)
-      ;; Probe all the subslots of DEFN to find something
+      ;; Probe all the sub-slots of DEFN to find something
       (find-if (lambda (s)
                  (funcall s u))
                (sub-slots 'defn))
-      (and (isa u 'category)
+      ;; TODO - was (isa u 'category), I think this is what it meant, as #'isa is just a slot reader
+      (and (is-a-kind-of u 'category)
            ;; Defn of a category is an ISA test
            ;; TODO - return a closure, or this source code?
            `(lambda (z)
@@ -1255,7 +1267,7 @@
 
 (defun instances (u)
   (cond
-    ((memb 'heurisic (isa u)) 'applics)
+    ((memb 'heuristic (isa u)) 'applics)
     ((memb 'op (isa u)) 'applics)
     (t 'examples)))
 
@@ -1290,15 +1302,15 @@
 ;;;;
 ;;;; These also obey max time/space when working on tasks
 
-(defun map-applics (u f)
+;; TODO - this num-iterations default seems like it should be a tuning variable
+(defun map-applics (u f &optional (num-iterations 300))
   ;; ORIG: This may have to generate examples, rather than merely calling Applics
   (mapc f (applics u))
   (when-let* ((gen (applic-generator u))
               (genf (applic-gen-build gen))
               (gena (applic-gen-args gen))
-              ;; TODO - these next 4 were params, but the only call site didn't use them anyway
-              (nit 300)
-              (when-to-check (1+ (floor nit 10)))
+              ;; TODO - these next 3 were params, but nothing used them
+              (when-to-check (1+ (floor num-iterations 10)))
               (max-real-time (* *cur-pri* *user-impatience*
                                 ;; TODO - quite a magic calculation
                                 (1+ (floor (+ 0.5 (log (max 2 (1+ *verbosity*))))))))
@@ -1306,7 +1318,7 @@
     ;; TODO - this length check eliminates an internal loop, but how actually impactful is that? verify that the general 2nd clause will work for everything
     (if (= 1 (length gena))
         (loop initially (set (car gena) (car (applic-gen-init gen)))
-              for j from 1 to nit
+              for j from 1 to num-iterations
               until (or (taking-too-long j when-to-check max-real-time)
                         (taking-too-much-space j when-to-check max-space u 'applics))
               do (progn
@@ -1314,7 +1326,7 @@
                    (funcall f (eval (car gena)))
                    (set (car gena) (funcall (car genf) (eval (car gena))))))
         (loop initially (mapc #'set gena (applic-gen-init gen))
-              for j from 1 to nit
+              for j from 1 to num-iterations
               until (or (taking-too-long j when-to-check max-real-time)
                         (taking-too-much-space j when-to-check max-space u 'applics))
               do (progn
@@ -1324,27 +1336,29 @@
                          gena
                          genf))))))
 
-(defun map-examples (u f nit)
+(defun map-examples (u f &optional (num-iterations 1000))
   ;; ORIG: This may have to generate examples, rather than merely calling Applics
   (let ((gen (generator u)))
     (if-let ((gen gen) ;; just to have it hit the IF-check
              (genf (gen-build gen))
              (gena (gen-args gen))
-             (nit 1000)
-             (when-to-check (1+ (floor nit 10)))
+             ;; TODO - these next 3 were optional params, but nothing used them
+             (when-to-check (1+ (floor num-iterations 10)))
              (max-real-time (* *cur-pri* *user-impatience*
                                (1+ (floor (+ 0.5 (log (max 2 (1+ *verbosity*))))))))
              (max-space (average *cur-pri* 500)))
       (if (= 1 (length gena))
           (loop initially (set (car gena) (car (gen-init gen)))
-                for j from 1 to nit until (or (taking-too-long j when-to-check max-real-time)
-                                              (taking-too-much-space j when-to-check max-space u 'examples))
+                for j from 1 to num-iterations
+                until (or (taking-too-long j when-to-check max-real-time)
+                          (taking-too-much-space j when-to-check max-space u 'examples))
                 do (progn
                      (funcall f (eval (car gena)))
                      (set (car gena) (funcall (car genf) (eval (car gena))))))
           (loop initially (mapc #'set gena (gen-init gen))
-                for j from 1 to nit until (or (taking-too-long j when-to-check max-real-time)
-                                              (taking-too-much-space j when-to-check max-space u 'examples))
+                for j from 1 to num-iterations
+                until (or (taking-too-long j when-to-check max-real-time)
+                          (taking-too-much-space j when-to-check max-space u 'examples))
                 do (progn
                      (apply-eval f gena)
                      (mapc (lambda (var fn)
@@ -1585,7 +1599,7 @@
 (defun specialize-dotted-pair (x)
   x)
 
-(defun sepcialize-io-pair (x)
+(defun specialize-io-pair (x)
   ;; ORIG: eventually: look thru the (i o) pairs, and make a few new ones, with i's selected from the set of i's, and o's similarly -- or select from examples of things which I can o are examples of
   x)
 
@@ -1782,7 +1796,7 @@
     (setf *cur-pri* (extract-priority task))
     (setf *cur-unit* (extract-unit-name task))
     (setf *cur-slot* (extract-slot-name task))
-    ;; TODO *old-val* is never read. However, there i an *old-value* but that's probably different?
+    ;; TODO - *old-val* is never read. However, there is an *old-value* but that's probably different?
     (setf *cur-val* (setf *old-val* (funcall *cur-slot* *cur-unit*)))
     (setf *new-values* nil)
     (setf *cur-reasons* (extract-reasons task))
@@ -1793,6 +1807,7 @@
       (snazzy-concept t))
     (or (every (lambda (p)
                  (setf *heuristic-agenda* (examples 'heuristic))
+                 ;; TODO - should this use of R turn into *RULE*?  loop for will create a dynamic binding
                  (loop for r = (pop *heuristic-agenda*)
                        unless r return t
                          when *abort-task?* return nil
@@ -1925,32 +1940,31 @@
 
 
 
-(defun interp1 (r *arg-unit*)
-  (declare (ignore r))
+(defun interp1 (*rule* *arg-unit*)
   ;; ORIG: assembles pieces of the heuristic rule r, and runs them on argument ArgU.
   (every #'true-if-it-exists (sub-slots 'if-parts)))
 
-(defun interp2 (r *arg-unit*)
+(defun interp2 (*rule* *arg-unit*)
   ;; ORIG: assembles pieces of the heuristic rule R, and runs them on argument ArgU.
   ;; ORIG: This is a more "vocal" interpreter than interp1
   (cond
     ((every #'true-if-it-exists (sub-slots 'if-parts))
      (and (is-alto)
-          (snazzy-heuristic r))
-     (cprin1 66 "    All the IfParts of " r " " (abbrev r) " are satisfied, so we are applying the ThenParts.~%")
-     (cprin1 29 r " applies.~%")
-     (and (my-time '(every #'xeq-if-it-exists (subslots 'then-parts))
+          (snazzy-heuristic *rule*))
+     (cprin1 66 "    All the IfParts of " *rule* " " (abbrev *rule*) " are satisfied, so we are applying the ThenParts.~%")
+     (cprin1 29 *rule* " applies.~%")
+     (and (my-time '(every #'xeq-if-it-exists (sub-slots 'then-parts))
                    '*time-elapsed*)
-          (cprin1 68 "~%  All the ThenParts of " r " " (abbrev r) " have been successfully executed.~%")
-          (setf *tim-rec* (or (overall-record r)
-                              (put r 'overall-record (cons 0 0))))
+          (cprin1 68 "~%  All the ThenParts of " *rule* " " (abbrev *rule*) " have been successfully executed.~%")
+          (setf *tim-rec* (or (overall-record *rule*)
+                              (put *rule* 'overall-record (cons 0 0))))
           (incf (cdr *tim-rec*))
           (incf (car *tim-rec*) *time-elapsed*)
           t))))
 
 ;; TODO - interp2 was exactly duplicated back-to-back in EUR, I don't think that changes anything?
 
-(defun interp3 (r *arg-unit* *arg-slot*)
+(defun interp3 (*rule* *arg-unit* *arg-slot*)
   ;; ORIG: assembles pieces of the heuristic rule r, and runs them on argument ArgU and slot ArgS
   ;; ORIG: This is a more "vocal" interpreter than interp1
   (let ((*cur-unit* *arg-unit*)
@@ -1959,48 +1973,47 @@
       ((every #'true-if-it-exists (sub-slots 'if-parts))
        ;; The COND ensures that only 1 option will be printed, not both if the verbosity is high
        (cond
-         ((> *verbosity* 66) (cprin1 66 " All the IfParts of " r " " (abbrev r) " are satisfied, so we are applying the ThenParts.~%"))
-         ((> *verbosity* 29) (cprin1 29 r " applies.~%")))
+         ((> *verbosity* 66) (cprin1 66 " All the IfParts of " *rule* " " (abbrev *rule*) " are satisfied, so we are applying the ThenParts.~%"))
+         ((> *verbosity* 29) (cprin1 29 *rule* " applies.~%")))
        (and (my-time '(every #'xeq-if-it-exists (sub-slots 'then-parts))
                      '*time-elapsed*)
-            (cprin1 68 "~%       All the ThenParts of " r " " (abbrev r) " have been successfully executed.~%")
-            (setf *tim-rec* (or (overall-record r)
-                                (put r 'overall-record (cons 0 0))))
+            (cprin1 68 "~%       All the ThenParts of " *rule* " " (abbrev *rule*) " have been successfully executed.~%")
+            (setf *tim-rec* (or (overall-record *rule*)
+                                (put *rule* 'overall-record (cons 0 0))))
             (incf (cdr *tim-rec*))
             (incf (car *tim-rec*) *time-elapsed*)
             t)))))
 
-;; TODO - what is R?
 (defun true-if-it-exists (s)
   ;; ORIG: This is an aux fn of rule interpreters. We assume that the interpreter is being run on a rule called r, which is to be applied to a unit ArgU
-  (let ((z (funcall s r)))
+  (let ((z (funcall s *rule*)))
     (cond
       ((null z))
       ((< *verbosity* 80)
        (funcall z *arg-unit*))
       ((funcall z *arg-unit*)
-       (cprin1 -1 "        the " s " slot of " r " holds for " *arg-unit* "~%")
+       (cprin1 -1 "        the " s " slot of " *rule* " holds for " *arg-unit* "~%")
        t)
       ((> *verbosity* 95)
-       (cprin1 95 "        the " s " slot of " r " didn't hold for " *arg-unit* "~%")
+       (cprin1 95 "        the " s " slot of " *rule* " didn't hold for " *arg-unit* "~%")
        nil))))
 
 (defun xeq-if-it-exists (s)
   ;; ORIG: This is an aux fn of rule interpreters. We assume that the interpreter is being run on a rule called r, which is to be applied to a unit ArgU
   ;; ORIG: This function evaluates the s part of r, which is presumably a Then- part of some sort
-  (let ((z (funcall s r))
+  (let ((z (funcall s *rule*))
         (*time-elapsed*)
         (*tim-rec*))
     (cond
       ((null z) t)
       ((my-time '(funcall z *arg-unit*)
                 '*time-elapsed*)
-       (cprin1 80 "        the " s " slot of " r " has been applied successfully to " *arg-unit* "~%")
-       (setf *tim-rec* (or (funcall (car (record s)) r)
-                           (put r (car (record s)) (cons 0 0))))
+       (cprin1 80 "        the " s " slot of " *rule* " has been applied successfully to " *arg-unit* "~%")
+       (setf *tim-rec* (or (funcall (car (record s)) *rule*)
+                           (put *rule* (car (record s)) (cons 0 0))))
        (incf (cdr *tim-rec*))
        (incf (car *tim-rec*) *time-elapsed*)
-       (cprin1 75 "        the " s " slot or " r " was applied to " *arg-unit*
+       (cprin1 75 "        the " s " slot of " *rule* " was applied to " *arg-unit*
                ", but for some reason it signalled a failure.~%")))))
 
 
@@ -2064,6 +2077,23 @@
      (floor (get-internal-real-time) (floor internal-time-units-per-second 1000)))
     (2 ;; Compute time not including GC, since lisp startup
      (floor (get-internal-run-time) (floor internal-time-units-per-second 1000)))))
+
+
+(defun month-name (month-num)
+  "Given 1-12"
+  (aref #(jan feb mar apr may jun jul aug sep oct nov dec) (1- month-num)))
+
+(defun date ()
+  (multiple-value-bind (sec min hour date month year) (get-decoded-time)
+    (format nil "~2,'0d-~a-~4,'0d ~2,'0d:~2,'0d:~2,'0d" date (month-name month) year hour min sec)))
+
+;; TODO - only used in the dribble output filename, which I didn't implement here
+(defun date2 ()
+  "Returns a current month+day string"
+  ;; Used to mung with the returned (date) string, build it up separately here
+  (multiple-value-bind (sec min hour date month) (get-decoded-time)
+    (declare (ignore sec min hour))
+    (format nil "~a~2,'0d" (month-name month) date)))
 
 
 
@@ -2183,12 +2213,12 @@
                  ((setf uu (set-diff *units* units-focused-on)))
                  (eternal-flag (cprin1 3 "~%~%~%Have focused on all the units at least once.  Starting another pass through them.~%~%~%")
                                (setf units-focused-on nil))
-                 (t (prin1 "~%Should I continue with another pass? ")
+                 (t (format t "~%Should I continue with another pass? ")
                     (or (yes-no)
                         (return 'eurisko-halting))
                     (setf units-focused-on nil)))
-               (setf units-focused-on (cons (work-on-unit (maximum uu #'worth))
-                                            units-focused-on))
+               ;; TODO - by just hitting maximum worth, this will always start with the exact same units in order?
+               (push (work-on-unit (maximum uu #'worth)) units-focused-on)
                (and (is-alto)
                     (null *agenda*)
                     ;;(DSPRESET BitAgenda)
@@ -2204,7 +2234,7 @@
 ;;;; TUI input & output
 
 (defun read* ()
-  "Fix for cmdline use, forces any output before reading input"
+  "Fix for cmdline use especially in SBCL, forces any output before reading input"
   (force-output)
   (read))
 
@@ -2224,19 +2254,12 @@
           ;; Interpret zero-parameter format strings
           (format t arg)
           ;; Normal object print
-          (prin1 arg))))
+          (princ arg))))
   t)
 
 (defun percentify (n)
   (format nil "~a%" (floor (* 100 (+ n 0.005)))))
 
-(defun date2 ()
-  "Returns a current month+day string"
-  ;; TODO - takes return from (DATE) which is a string like "14-MAY-71 14:26:08", and returns "MAY14"?
-  ;; only used in the dribble output filename?
-  (multiple-value-bind (sec min hour date month) (get-decoded-time)
-    (declare (ignore sec min hour))
-    (format nil "~a~2,'0d" (aref #(jan feb mar apr may jun jul aug sep oct nov dec) (1- month)) date)))
 
 ;; TODO - much of this printing stuff uses PRINDEN, which is defined in P[AM,DBL], and is alto GUI stuff for an indented print
 
@@ -2384,8 +2407,8 @@
   "Stored argument carried across functions")
 
 ;; TODO - some of these might be replacable by local variables
-(defvar *cur-unit*)
-(defvar *cur-slot*)
+(defvar *cur-unit* nil) ;; TODO - get unbound errors if not initialized, might be a semantic problem
+(defvar *cur-slot* nil) ;; TODO - get unbound errors if not initialized, might be a semantic problem
 (defvar *cur-val*)
 (defvar *cur-reasons*)
 (defvar *cur-sup*) ;; set to (cur-sup curent-task)
@@ -2705,15 +2728,15 @@
 
 ;; Many of these collection fields are machine-generated from RLL, and should be removed from the source (but use these lists to verify the generated versions). Worth 500 is likely default, don't need to specify those.
 
-;; Rarity is maintained by run-alg or run-defn, so the values in the putprops are likely the runtime accumulated state saved from RLL. The decimal values are too long to be hand-tweaked
+;; Rarity is maintained by run-alg or run-defn, so the values in the putprops are likely the runtime accumulated state saved from RLL or similar tool. The decimal values are too long to be hand-tweaked
 
 
 (defvar *units* '(int-applics mult-ele-struc-insert h29 h28 h27 h26 h25 rarity why-int h24 h23 is-a-int
                   int-examples less-interesting more-interesting h22 interestingness restrictions
-                  extensions op-cat-by-n-args pred-cat-by-n-args tertiary-pred unary-pred binary-pred
+                  extensions op-cat-by-nargs pred-cat-by-nargs tertiary-pred unary-pred binary-pred
                   higher-arity lower-arity non-empty-struc empty-struc set-of-sets
                   structure-of-structures truth-value atom implies not logic-op relation
-                  set-of-o-pairs invert-op inverted-op restrict identity1 proj-3-of-3 proj-2-of-3
+                  set-of-o-pairs invert-op inverted-op restrict identity-1 proj-3-of-3 proj-2-of-3
                   proj-1-of-3 proj-2 proj-1 memb member all-but-last last-ele all-but-third all-but-second
                   all-but-first third-ele second-ele first-ele reverse-o-pair pair o-pair
                   parallel-join-2 parallel-join repeat2 tertiary-op repeat binary-op
@@ -2748,7 +2771,7 @@
                   then-add-to-agenda-failed-record then-add-to-agenda-record then-compute
                   then-compute-failed-record then-compute-record then-conjecture
                   then-conjecture-failed-record then-conjecture-record then-define-new-concepts
-                  then-define-new-concepts-failed-rcord then-define-new-concepts-record
+                  then-define-new-concepts-failed-record then-define-new-concepts-record
                   then-delete-old-concepts then-delete-old-concepts-failed-record
                   then-delete-old-concepts-record then-modify-slots then-modify-slots-failed-record
                   then-modify-slots-record then-parts then-print-to-user then-print-to-user failed-record
@@ -2776,7 +2799,7 @@
   isa (math-concept math-op op anything struc-op mult-ele-struc-op binary-op)
   arity 2
   domain (anything mult-ele-struc)
-  range (multi-ele-struc)
+  range (mult-ele-struc)
   elim-slots (applics)
   specializations (list-insert bag-insert)
   fast-alg cons)
@@ -3001,7 +3024,7 @@
                        (every (lambda (n) (run-defn 'o-pair n)) s))))
 
 (defunit set-of-o-pairs
-  isa (math-concept math-object anything category)
+  isa (math-concept math-obj anything category)
   worth 500
   unitized-defn (lambda (s)
                   (and (run-defn 'set s)
@@ -3024,7 +3047,7 @@
   worth 500
   isa (math-concept math-obj anything category)
   abbrev ("Operations which were formed via InvertOp")
-  is-range-of (InvertOp))
+  is-range-of (invert-op))
 
 (defunit restrict
   worth 600
@@ -3041,7 +3064,7 @@
                (cond ((and garg ;; TODO - these 2 were setf'd here. Is there return value ever NIL?
                            newdom
                            (not (equal newdom (domain f))))
-                      (let ((nam (create-unit (pack* 'restric f))))
+                      (let ((nam (create-unit (pack* 'restrict f))))
                         (put nam 'isa (copy (isa f)))
                         (put nam 'worth (average-worths 'restrict f))
                         (put nam 'arity (arity f))
@@ -3276,48 +3299,8 @@
   is-range-of (reverse-o-pair)
   specializations (non-empty-struc))
 
-(defunit parallel-join-2
+(defunit parallel-join
   worth 800
-  isa (math-concept math-op op anything tertiary-op)
-  arity 3
-  domain (type-of-structure type-of-structure binary-op)
-  range (binary-op)
-  elim-slots (applics)
-  fast-alg (lambda (s s2 f)
-             ;; ORIG: note that S is the name of a type of structure, such as List, rather than a particular individual structure, such as (a b c d)
-             (cond ((and (memb 'structure (generalizations s))
-                         (memb 'structure (generalizations s2))
-                         (memb 'op (isa f))
-                         (eq 2 (length (domain f)))
-                         (is-a-kind-of s2 (cadr (domain f)))
-                         (or (eq 'anythign (car (domain f)))
-                             (let ((typmem (each-element-is-a s)))
-                               (and typmem
-                                    (is-a-kind-of typmem (car (domain f)))))))
-                    (let ((nam (create-unit (pack* 'join- f '-on- s 's '-with-a- 's2 '-as-param))))
-                      (put nam 'isa (isa f))
-                      (put nam 'worth (average-worths 'parallel-replace-2
-                                                      (average-worths f (average-worths s s2))))
-                      (put nam 'arity 2)
-                      (put nam 'domain (list s s2))
-                      (put nam 'range (list (let ((mu (pack* s '-of- (car (range f)) 's)))
-                                              (if (unitp mu)
-                                                  mu
-                                                  (progn
-                                                    (cprin1 21 "~% It might be nice to have a unit called "
-                                                            mu "~%")
-                                                    s)))))
-                      (put nam 'unitized-alg (subst f 'f '(lambda (s s2)
-                                                           (mapappend s (lambda (e)
-                                                                          (run-alg 'f e s2))))))
-                      (put nam 'elim-slots '(applics))
-                      (put nam 'creditors 'parallel-replace-2)
-                      (add-inv nam)
-                      nam))
-                   (t 'failed)))
-  rarity (0.3272727 36 74))
-
-(defunit parallel-join worth 800
   isa (math-concept math-op op anything binary-op)
   arity 2
   domain (type-of-structure unary-op)
@@ -3325,7 +3308,7 @@
   elim-slots (applics)
   fast-alg (lambda (s f)
              ;; ORIG: note that S is the name of a type of structure, such as List, rather than a particular individual structure, such as (a b c d)
-             (cond ((and (memb 'structure (generalization s))
+             (cond ((and (memb 'structure (generalizations s))
                          (memb 'op (isa f))
                          (eq 1 (length (domain f)))
                          (or (eq 'anything (car (domain f)))
@@ -3353,11 +3336,11 @@
                    (t ;; ORIG: we should check for cases where f could sub for other than the first arg of g
                     'failed))))
 
-(defunit repeat2
+(defunit parallel-join-2
   worth 800
   isa (math-concept math-op op anything tertiary-op)
   arity 3
-  domain (type-of-structure type-of-structure tertiary-op)
+  domain (type-of-structure type-of-structure binary-op)
   range (binary-op)
   elim-slots (applics)
   fast-alg (lambda (s s2 f)
@@ -3365,39 +3348,41 @@
              (cond ((and (memb 'structure (generalizations s))
                          (memb 'structure (generalizations s2))
                          (memb 'op (isa f))
-                         (eq 3 (length (domain f)))
-                         (or (eq 'anything (caddr (domain f)))
+                         (eq 2 (length (domain f)))
+                         (is-a-kind-of s2 (cadr (domain f)))
+                         (or (eq 'anything (car (domain f)))
                              (let ((typmem (each-element-is-a s)))
                                (and typmem
-                                    (is-a-kind-of typmem (caddr (domain f))))))
-                         (is-a-kind-of (car (range f))
-                                       (car (domain f)))
-                         (is-a-kind-of s2 (cadr (domain f))))
-                    (let ((nam (create-unit (pack* 'repeat2- f '-on- 's-with-a- s2 '-as-param))))
-                      (put nam 'isa (cons 'binary-op (remove 'tertiary-op (isa f))))
-                      (put nam 'worth (average-worths 'repeat2 (average-worths f (average-worths s s2))))
+                                    (is-a-kind-of typmem (car (domain f)))))))
+                    (let ((nam (create-unit (pack* 'join- f '-on- s 's '-with-a- 's2 '-as-param))))
+                      (put nam 'isa (isa f))
+                      (put nam 'worth (average-worths 'parallel-replace-2
+                                                      (average-worths f (average-worths s s2))))
                       (put nam 'arity 2)
                       (put nam 'domain (list s s2))
-                      (put nam 'range (copy (range f)))
-                      (put nam 'unitized-alg (subst f 'f '(lambda (s s2 v)
-                                                           (setf v (car s))
-                                                           (mapc (lambda (e)
-                                                                   (setf v (run-alg 'f v s2 e)))
-                                                            (cdr s))
-                                                           v)))
+                      (put nam 'range (list (let ((mu (pack* s '-of- (car (range f)) 's)))
+                                              (if (unitp mu)
+                                                  mu
+                                                  (progn
+                                                    (cprin1 21 "~% It might be nice to have a unit called "
+                                                            mu "~%")
+                                                    s)))))
+                      (put nam 'unitized-alg (subst f 'f '(lambda (s s2)
+                                                           (mapappend s (lambda (e)
+                                                                          (run-alg 'f e s2))))))
                       (put nam 'elim-slots '(applics))
-                      (put nam 'creditors '(repeat2))
+                      (put nam 'creditors 'parallel-replace-2)
                       (add-inv nam)
                       nam))
-                   (t ;; ORIG:  we should check for cases where f could sub for other than the first arg of g
-                    'failed)))
-  rarity (0.2295082 14 47))
+                   (t 'failed)))
+  rarity (0.3272727 36 74))
+
 
 (defunit tertiary-op
   generalizations (op anything)
   worth 500
   isa (repr-concept anything category op-cat-by-nargs)
-  examples (parallel-replace-2 repeate2 parallel-join-2 proj-1-of-3 proj-2-of-3 proj-3-of-3)
+  examples (parallel-replace-2 repeat2 parallel-join-2 proj-1-of-3 proj-2-of-3 proj-3-of-3)
   in-domain-of (repeat2)
   lower-arity (binary-op)
   specializations (tertiary-pred)
@@ -3444,6 +3429,46 @@
                    (t ;; ORIG: we should check for cases where f could sub for other than the first arg of g
                     'failed)))
   rarity (0.3555556 16 29))
+
+(defunit repeat2
+  worth 800
+  isa (math-concept math-op op anything tertiary-op)
+  arity 3
+  domain (type-of-structure type-of-structure tertiary-op)
+  range (binary-op)
+  elim-slots (applics)
+  fast-alg (lambda (s s2 f)
+             ;; ORIG: note that S is the name of a type of structure, such as List, rather than a particular individual structure, such as (a b c d)
+             (cond ((and (memb 'structure (generalizations s))
+                         (memb 'structure (generalizations s2))
+                         (memb 'op (isa f))
+                         (eq 3 (length (domain f)))
+                         (or (eq 'anything (caddr (domain f)))
+                             (let ((typmem (each-element-is-a s)))
+                               (and typmem
+                                    (is-a-kind-of typmem (caddr (domain f))))))
+                         (is-a-kind-of (car (range f))
+                                       (car (domain f)))
+                         (is-a-kind-of s2 (cadr (domain f))))
+                    (let ((nam (create-unit (pack* 'repeat2- f '-on- 's-with-a- s2 '-as-param))))
+                      (put nam 'isa (cons 'binary-op (remove 'tertiary-op (isa f))))
+                      (put nam 'worth (average-worths 'repeat2 (average-worths f (average-worths s s2))))
+                      (put nam 'arity 2)
+                      (put nam 'domain (list s s2))
+                      (put nam 'range (copy (range f)))
+                      (put nam 'unitized-alg (subst f 'f '(lambda (s s2 v)
+                                                           (setf v (car s))
+                                                           (mapc (lambda (e)
+                                                                   (setf v (run-alg 'f v s2 e)))
+                                                            (cdr s))
+                                                           v)))
+                      (put nam 'elim-slots '(applics))
+                      (put nam 'creditors '(repeat2))
+                      (add-inv nam)
+                      nam))
+                   (t ;; ORIG:  we should check for cases where f could sub for other than the first arg of g
+                    'failed)))
+  rarity (0.2295082 14 47))
 
 (defunit binary-op
   in-domain-of (parallel-replace-2 repeat parallel-join-2)
@@ -3521,7 +3546,7 @@
                      constant-unary-pred divisors-of good-choose good-subset
                      random-choose random-subset square successor undefined-pred
                      reverse-o-pair first-ele second-ele third-ele all-but-first
-                     all-but-second all-but-third last-ele all-but-last identity1 restrict
+                     all-but-second all-but-third last-ele all-but-last identity-1 restrict
                      invert-op not)
   isa (repr-concept anything category op-cat-by-nargs)
   in-domain-of (parallel-replace parallel-join)
@@ -3820,7 +3845,7 @@
 
 (defunit set-union
   worth 500
-  isa (math-concept math-op op anyting struc-op set-op binary-op)
+  isa (math-concept math-op op anything struc-op set-op binary-op)
   arity 2
   domain (set set)
   range (set)
@@ -3952,7 +3977,7 @@
   isa (math-concept math-obj anything category type-of-structure)
   specializations (list o-set o-pair empty-struc non-empty-struc)
   generalizations (structure anything)
-  in-domain-of (ord-struc-equal all-but-first firsrt-ele second-ele third-ele all-but-second
+  in-domain-of (ord-struc-equal all-but-first first-ele second-ele third-ele all-but-second
                                 all-but-third last-ele all-but-last))
 
 (defunit no-mult-ele-struc
@@ -4332,7 +4357,7 @@
 
 (defunit always-t
   worth 500
-  isa (op pred anything constant-pred unary-op math-op unarypred)
+  isa (op pred anything constant-pred unary-op math-op unary-pred)
   arity 1
   domain (anything)
   range (bit)
@@ -4371,13 +4396,13 @@
   is-range-of (random-choose good-choose best-choose and or the-second-of the-first-of
                              first-ele second-ele third-ele all-but-first all-but-second
                              all-but-third last-ele all-but-last proj1 proj2 proj-1-of-3
-                             proj-2-of-3 proj-3-of-3 identity1 implies ord-struc-equal)
-  in-domain-of (equal eq and or the-second-of the-forst-of always-t always-nil
+                             proj-2-of-3 proj-3-of-3 identity-1 implies ord-struc-equal)
+  in-domain-of (equal eq and or the-second-of the-first-of always-t always-nil
                       constant-binary-pred always-t-2 always-nil-2 constant-unary-pred
                       undefined-pred struc-insert struc-delete set-insert set-delete
                       list-insert list-delete list-delete-1 bag-insert bag-delete
                       bag-delete-1 mult-ele-struc-delete-1 o-set-insert o-set-delete member
-                      memb proj1 proj2 proj-1-of-3 proj-2-of-3 proj-3-of-3 identity1 not
+                      memb proj1 proj2 proj-1-of-3 proj-2-of-3 proj-3-of-3 identity-1 not
                       implies mult-ele-struc-insert)
   fast-defn (lambda (x)
               (declare (ignore x))
@@ -4391,7 +4416,7 @@
                 applics if-finished-working-on-task isa if-truly-relevant sub-slots
                 if-parts if-potentially-relevant examples data-type english worth
                 inverse creditors generalizations specializations then-add-to-agenda
-                then-compute then-connjecture abbrev then-define-new-concepts
+                then-compute then-conjecture abbrev then-define-new-concepts
                 then-modify-slots then-print-to-user then-parts super-slots if-task-parts
                 format dont-copy double-check generator if-working-on-task is-range-of
                 to-delete-1 alg fast-defn recursive-defn unitized-defn fast-alg
@@ -4429,11 +4454,11 @@
                 parallel-replace-2 repeat tertiary-op repeat2 parallel-join
                 parallel-join-2 o-pair pair reverse-o-pair first-ele second-ele third-ele
                 all-but-first all-but-second all-but-third last-ele all-but-last member
-                memb proj1 proj2 proj-1-of-3 proj-2-of-3 proj-3-of-3 identity1 restrict
+                memb proj1 proj2 proj-1-of-3 proj-2-of-3 proj-3-of-3 identity-1 restrict
                 inverted-op invert-op set-of-o-pairs relation logic-op not implies atom
                 truth-value structure-of-structures set-of-sets empty-struc
                 non-empty-struc undefined lower-arity higher-arity unary-pred
-                binary-pred tertiary-pred pred-cat-by-nargs op-cat-by-narts extensions
+                binary-pred tertiary-pred pred-cat-by-nargs op-cat-by-nargs extensions
                 restrictions interestingness h22 more-interesting less-interesting
                 int-examples h23 h24 why-int rarity is-a-int h25 h26 h27 28 h29
                 mult-ele-struc-insert int-applics english-1 restric-random-subset-3)
@@ -4509,6 +4534,7 @@
                 structure-of-structures set-of-sets empty-struc non-empty-struc unary-pred
                 binary-pred tertiary-pred pred-cat-by-nargs op-cat-by-nargs)
   specializations (type-of-structure pred-cat-by-nargs op-cat-by-nargs)
+  ;; TODO - this is evaluating based on a call to a newer heuristic? also, interp2 is the default interpreter, not interp3?
   interestingness (interp3 'h24 u 'why-int))
 
 (defunit compiled-defn
@@ -4587,7 +4613,7 @@
   domain (anything)
   range (bit)
   elim-slots (applics)
-  specializations (always-t2 always-nil-2))
+  specializations (always-t-2 always-nil-2))
 
 (defunit constant-pred
   generalizations (op pred anything)
@@ -4795,7 +4821,7 @@
 
 (defunit good-choose
   worth 500
-  isa (math-concept math-op op set-op anyting struc-op unary-op)
+  isa (math-concept math-op op set-op anything struc-op unary-op)
   fast-alg #'good-choose
   domain (set)
   range (anything)
@@ -4820,8 +4846,13 @@
   examples (h1 h5 h6 h3 h4 h7 h8 h9 h10 h11 h2 h12 h-avoid h-avoid-2 h-avoid-3 h13 h14
                h15 h16 h17 h18 h19 h-avoid-2-and h-avoid-3-first h-avoid-if-working
                h5-criterial h5-good h19-criterial h20 h21 h22 h23 h24 h25 h26 h27
-               ;; TODO - H1-6 is referenced twice in EUR, but not found anywhere
-               h28 h20 h1-6)
+               ;; TODO - H1-6 is referenced twice in EUR, but not found anywhere.
+               ;;        Removed it, because it was always selected and did nothing
+               ;;        There is also an h1-11 referred to in applics logs
+               ;;        These are specializations of h1 that ran at some point, but weren't saved?
+               ;; TODO - but why does the interlisp version work with these in live data?
+               ;;        ensure that when this is re-enabled, it doesn't always try to fire it
+               h28 h20 #|h1-6|#)
   isa (repr-concept anything category)
   generalizations (op anything repr-concept)
   specializations (hind-sight-rule))
@@ -4870,7 +4901,7 @@
 
 (defunit ileq
   worth 500
-  isa (math-concept math-op op math-pred pred anythign num-op binary-op binary-pred)
+  isa (math-concept math-op op math-pred pred anything num-op binary-op binary-pred)
   fast-alg #'<=
   arity 2
   domain (nnumber nnumber)
@@ -4980,7 +5011,7 @@
   super-slots (defn)
   worth 600
   isa (slot criterial-slot repr-concept anything)
-  data-type lisp-red)
+  data-type lisp-pred)
 
 (defunit math-concept
   generalizations (anything)
@@ -5006,7 +5037,7 @@
                     parallel-join parallel-join-2 o-pair pair reverse-o-pair first-ele
                     second-ele third-ele all-but-first all-but-second all-but-third
                     last-ele all-but-last member memb proj1 proj2 proj-1-of-3
-                    proj-2-of-3 proj-3-of-3 identity1 restrict inverted-op invert-op
+                    proj-2-of-3 proj-3-of-3 identity-1 restrict inverted-op invert-op
                     set-of-o-pairs relation logic-op structure-of-structures
                     set-of-sets empty-struc non-empty-struc mult-ele-struc-insert
                     restric-random-subset-3)
@@ -5018,7 +5049,7 @@
 (defunit math-obj
   generalizations (math-concept anything)
   worth 500
-  examples (nnumber prime-num perf-num per-square odd-num even-num set set-of-numbers bit
+  examples (nnumber prime-num perf-num perf-square odd-num even-num set set-of-numbers bit
                     math-concept num-op set-op math-pred math-obj math-op los1 los2 los3
                     los4 los5 los6 los7 win1 structure struc-op list-op list bag
                     bag-op mult-ele-struc mult-ele-struc-op o-set o-set-op no-mult-ele-struc
@@ -5032,7 +5063,7 @@
   worth 500
   examples (divisors-of square multiply add successor random-choose random-subset
                         good-choose best-choose best-subset good-subset equal ieqp eq
-                        ileq igeq ilessp igreaterp and or the-firsrt-of the-second-of
+                        ileq igeq ilessp igreaterp and or the-first-of the-second-of
                         struc-equal set-equal subsetp compose struc-insert struc-delete
                         set-insert set-delete list-insert list-delete list-delete-1
                         bag-insert bag-delete bag-delete-1 mult-ele-struc-delete-1 o-set-insert
@@ -5040,11 +5071,11 @@
                         set-intersection set-union struc-intersect list-intersect
                         o-set-intersect bag-intersect struc-union o-set-union list-union
                         bag-union struc-difference set-difference list-difference
-                        o-set-difference bag-difference coalesce prallel-replace
-                        parallel-replace-2 repeat repeat2 parallel-join parallel-join2
+                        o-set-difference bag-difference coalesce parallel-replace
+                        parallel-replace-2 repeat repeat2 parallel-join parallel-join-2
                         reverse-o-pair first-ele second-ele third-ele all-but-first
                         all-but-second all-but-third last-ele all-but-last member memb proj1
-                        proj2 proj-1-of-3 proj-2-of-3 proj-3-of-3 identity1 restrict invert-op
+                        proj2 proj-1-of-3 proj-2-of-3 proj-3-of-3 identity-1 restrict invert-op
                         not implies always-nil always-nil-2 always-t always-t-2
                         constant-binary-pred constant-pred constant-unary-pred
                         undefined-pred mult-ele-struc-insert restric-random-subset-3)
@@ -5176,10 +5207,10 @@
                           struc-difference set-difference list-difference o-set-difference
                           bag-difference coalesce parallel-replace parallel-replace-2 repeat
                           repeat2 parallel-join parallel-join-2 reverse-o-pair first-ele
-                          second-ele third-ele all-but-fist all-but-second all-but-third last-ele
+                          second-ele third-ele all-but-first all-but-second all-but-third last-ele
                           all-but-last member memb proj1 proj2 proj-1-of-3 proj-2-of-3 proj-3-of-3
-                          idenitity1 restrict invert-op not implies h22 h23 h24 h29 h16 h17
-                          h18 h25 h26 h27 h28 mult-ele-struc-insert h1-6)
+                          identity-1 restrict invert-op not implies h22 h23 h24 h29 h16 h17
+                          h18 h25 h26 h27 h28 mult-ele-struc-insert #|h1-6|#)
   generalizations (anything)
   in-domain-of (compose coalesce restrict invert-op)
   is-range-of (compose coalesce restrict))
@@ -5220,7 +5251,7 @@
   isa (repr-concept anything category)
   abbrev ("Boolean predicates")
   specializations (math-pred constant-pred unary-pred binary-pred tertiary-pred)
-  examples (equal ieqp eq ileq igeq ilessp igreaterp and or the-second-if the-first-of
+  examples (equal ieqp eq ileq igeq ilessp igreaterp and or the-second-of the-first-of
                   struc-equal set-equal subsetp always-t always-nil constant-binary-pred
                   always-t-2 always-nil-2 constant-unary-pred undefined-pred o-set-equal
                   bag-equal list-equal member memb not implies))
@@ -5335,7 +5366,7 @@
                  then-add-to-agenda-record then-compute then-compute-failed-record
                  then-compute-record then-conjecture then-conjecture-failed-record
                  then-conjecture-record then-define-new-concepts
-                 then-define-new-concepts-failed-recored then-define-new-concepts-record
+                 then-define-new-concepts-failed-record then-define-new-concepts-record
                  then-delete-old-concepts then-delete-old-concepts-failed-record
                  then-delete-old-concepts-record then-modify-slots
                  then-modify-slots-failed-record then-modify-slots-record then-parts
@@ -5467,7 +5498,7 @@
                                      failed-record-for record failed-record conjectures
                                      conjecture-about nec-defn suf-defn each-element-is-a
                                      lower-arity higher-arity extensions restrictions
-                                     interestingness more-interesting less-interestingk
+                                     interestingness more-interesting less-interesting
                                      int-examples why-int rarity is-a-int int-applics)
   specializations (criterial-slot non-criterial-slot record-slot)
   generalizations (unary-unit-op repr-concept anything))
@@ -5495,7 +5526,7 @@
 
 (defunit struc-equal
   worth 500
-  isa (math-concept math-op op math-pred pred anything binary-op binar-pred)
+  isa (math-concept math-op op math-pred pred anything binary-op binary-pred)
   arity 2
   domain (structure structure)
   range (bit)
@@ -5514,7 +5545,7 @@
                           (eq s nil))
                          (t (run-defn 'structure (cdr s)))))
   generalizations (anything)
-  specializations (set list bag multi-ele-struc o-set no-mult-ele-struc ord-struc
+  specializations (set list bag mult-ele-struc o-set no-mult-ele-struc ord-struc
                        un-ord-struc o-pair pair empty-struc non-empty-struc)
   in-domain-of (struc-equal struc-insert struc-delete struc-intersect struc-union
                             struc-difference member memb)
@@ -5619,7 +5650,7 @@
 
 (defunit the-second-of
   worth 500
-  isa (op pred math-op path-pred anyting binary-op logic-op binary-pred)
+  isa (op pred math-op path-pred anything binary-op logic-op binary-pred)
   fast-alg (lambda (x y)
              (declare (ignore x))
              y)
@@ -5699,7 +5730,7 @@
 (defunit then-define-new-concepts
   worth 600
   isa (slot criterial-slot repr-concept anything)
-  super-slots (then-partts)
+  super-slots (then-parts)
   data-type lisp-fn
   failed-record (then-define-new-concepts-failed-record)
   record (then-define-new-concepts-record))
