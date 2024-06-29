@@ -27,6 +27,7 @@
 (defvar *ops-to-use*) ;; TODO - only used in h15
 (defvar *res-u*) ;; TODO - only used in h21, but also never declared in EUR
 (defvar *rule-cycle-time*) ;; TODO - only ever written once, never read, even in EUR
+(defvar *reas*) ;; TODO - only used in h24, never declared in EUR
 
 ;; Big group of related ones
 (defvar *c-slot*) ;; also 'c-slot in applics?
@@ -108,23 +109,23 @@
 
   worth 700
   abbrev "Kill a concept that leads to lots of garbage"
-  if-finished-working-on-a-task (lambda (task)
-                                  (declare (ignore task))
-                                  (and
-                                   (assoc 'new-units *task-results*)
-                                   (setf *pos-cred* (subset (self-intersect (map-union (cdr (assoc 'new-units *task-results*))
-                                                                                       #'creditors))
-                                                            (lambda (c)
-                                                              ;; ORIG: See if C has generated many concepts none of which have any decent applics
-                                                              (and
-                                                               (memb c *new-u*)
-                                                               (>= (length (applics c)) 10)
-                                                               (every (lambda (z)
-                                                                        (and (consp (cadr z))
-                                                                             (every (lambda (a)
-                                                                                      (null (applics a)))
-                                                                                    (cadr z))))
-                                                                      (applics c))))))))
+  if-finished-working-on-task (lambda (task)
+                                (declare (ignore task))
+                                (and
+                                 (assoc 'new-units *task-results*)
+                                 (setf *pos-cred* (subset (self-intersect (map-union (cdr (assoc 'new-units *task-results*))
+                                                                                     #'creditors))
+                                                          (lambda (c)
+                                                            ;; ORIG: See if C has generated many concepts none of which have any decent applics
+                                                            (and
+                                                             (memb c *new-u*)
+                                                             (>= (length (applics c)) 10)
+                                                             (every (lambda (z)
+                                                                      (and (consp (cadr z))
+                                                                           (every (lambda (a)
+                                                                                    (null (applics a)))
+                                                                                  (cadr z))))
+                                                                    (applics c))))))))
   then-print-to-user (lambda (task)
                        (declare (ignore task))
                        (cprin1 14 "~%~%" (length *pos-cred*)
@@ -1513,7 +1514,118 @@
 
 (defheuristic h22
   isa (heuristic op anything)
-  )
+  english "IF instances of a unit have been found, THEN place a task on the Agenda to see if any of them are unusually interesting"
+  if-potentially-relevant null
+  worth 500
+  abbrev "Check instances of a unit for gems"
+  if-finished-working-on-task (lambda (task)
+                                (and (is-a-kind-of *cur-slot* (instances *cur-unit*))
+                                     (interestingness *cur-unit*)
+                                     (funcall *cur-slot* *cur-unit*)))
+  then-print-to-user (lambda (task)
+                       (cprin1 13 "A new task was added to the agenda, to see which of the "
+                               (length (examples *cur-unit*))
+                               " are interesting ones.~%")
+                       t)
+  then-add-to-agenda  (lambda (task)
+                        (add-to-agenda `((,(average-worths *cur-unit* 'h22)
+                                          ,*cur-unit*
+                                          ,(car (more-interesting (instances *cur-unit*)))
+                                          ("Now that instances of a unit have been found, see if any are unusually interesting")
+                                          (credit-to h22))))
+                        (add-task-results 'new-tasks '("1 unit's instances must be evaluated for Interestingness")))
+  arity 1
+  then-add-to-agenda-record (14 . 1)
+  then-print-to-user-record (38 . 1)
+  overall-record (75 . 1))
+
+(defheuristic h23
+  isa (heuristic op anything)
+  english "IF the current task is to find interesting examples of a unit, and it has some known examples already, THEN look over examples of the unit, and see if any of them are interesting"
+  if-potentially-relevant null
+  worth 700
+  ;; TODO - what does this mean?
+  abbrev "Some exs (u) may be interesting"
+  if-working-on-task (lambda (task)
+                       (and (is-a-kind-of *cur-slot* 'int-examples)
+                            (setf *defn-to-use* (interestingness *cur-unit*))
+                            (setf *space-to-use* (examples *cur-unit*))))
+  then-print-to-user (lambda (task)
+                       (cprin1 13 "~%Found " (length *new-values*) " of the " (length (examples *cur-unit*)) " to be interesting.~%")
+                       (cprin1 48 "    Namely: " *new-values* "~%")
+                       t)
+  then-compute (lambda (task)
+                 (setf *cur-val* (funcall *cur-slot* *cur-unit*))
+                 (dolist (z *space-to-use*)
+                   (if (funcall *defn-to-use* z)
+                       (progn
+                         (cprin1 55 "+")
+                         (union-prop *cur-unit* 'int-examples z)
+                         t)
+                       (progn
+                         (cprin1 56 "-")
+                         nil)))
+                 (when (setf *new-values* (set-difference (funcall *cur-slot* *cur-unit*)
+                                                         *cur-val*))
+                   (add-task-results 'new-values
+                                     `(,*cur-unit*
+                                       ,*cur-slot*
+                                       ,*new-values*
+                                       ("By examining Examples of" ,*cur-unit* ", Eurisko found"
+                                                                   ,(length *new-values*) " of them were also "
+                                                                   ,*cur-slot* " of " ,*cur-unit*)))))
+  arity 1)
+
+(defheuristic h24
+  isa (heuristic op anything)
+  english  "IF trying to see if a category is interesting, THEN see if all its examples satisfy the same, interesting, preferably rare predicate"
+  if-potentially-relevant (lambda (f)
+                            ;; ORIG: Note this is one of the rare rules which is used both to
+                            ;;       see if a unit f is interesting, via WorkOnUnit and via
+                            ;;       WorkOnTask
+                            (and (memb 'category (isa f))
+                                 (setf *space-to-use* (subset (examples 'unary-pred)
+                                                              (lambda (p)
+                                                                (and (or (has-high-worth p)
+                                                                         (memb p (int-examples 'unary-pred)))
+                                                                     (leq-nn (car (rarity p))
+                                                                             0.3)))))
+                                 (>= (length (examples *cur-unit*)
+                                             4))
+                                 (setf *cur-unit* f)
+                                 (setf *cur-slot* 'why-int)))
+  worth 500
+  abbrev "See if all examples of a category satisfy the same intereting predicate"
+  if-working-on-task (lambda (task)
+                       (and (is-a-kind-of *cur-slot* 'why-int)
+                            (memb 'category (isa *cur-unit*))
+                            (setf *space-to-use* (subset (examples 'unary-pred)
+                                                         (lambda (p)
+                                                           (and (or (has-high-worth p)
+                                                                    (memb p (int-examples 'unary-pred)))
+                                                                (leq-nn (car (rarity p))
+                                                                        0.3)))))
+                            (>= (length (examples *cur-unit*))
+                                4)))
+  then-print-to-user (lambda (task)
+                       (cprin1 13 "~%Of the " (length *space-to-use*)
+                               " predicates we tried, " (length *reas*)
+                               " were found to hold on all examples of " *cur-unit*
+                               ", thereby making it interesting.~%")
+                       (cprin1 40 "    Namely, " *reas* "~%")
+                       t)
+  then-compute (lambda (task)
+                 (setf *reas* (subset *space-to-use*
+                                      (lambda (p)
+                                        ;; ORIG: See if all examples of CurUnit
+                                        ;;       satisfy predicate P
+                                        (every (lambda (x)
+                                                 (run-alg p x))
+                                               (examples *cur-unit*)))))
+                 (union-prop-l *cur-unit* *cur-slot* *reas*)
+                 *reas*)
+  arity 1)
+
 (defheuristic h25
   isa (heuristic anything op)
   english "IF the unit being focused on is a very interesting predicate, THEN study the set of tuples upon which it holds"

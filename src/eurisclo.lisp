@@ -223,7 +223,7 @@
                        generator higher-arity if-about-to-work-on-task if-finished-working-on-task
                        if-potentially-relevant if-truly-relevant if-working-on-task in-domain-of int-examples
                        interestingness inverse isa is-a-int is-range-of iterative-alg iterative-defn
-                       less-interesting lower-arity more-intersting nec-defn non-examples overall-record
+                       less-interesting lower-arity more-interesting nec-defn non-examples overall-record
                        range rarity record record-for recursive-alg recursive-defn restrictions
                        specializations sub-slots subsumed-by subsumes suf-defn super-slots
                        then-add-to-agenda then-add-to-agenda-failed-record then-add-to-agenda-record
@@ -4393,7 +4393,7 @@
                 in-domain-of domain range indirect-applics direct-applics defn
                 sib-slots transpose then-delete-old-concepts subsumes subsumed-by
                 overall-record then-print-to-user-failed-record
-                then-addo-to-agenda-failed-record then-delete-old-concepts-failed-record
+                then-add-to-agenda-failed-record then-delete-old-concepts-failed-record
                 then-define-new-concepts-failed-record then-conjecture-failed-record
                 then-modify-slots-failed-record then-compute-failed-record
                 then-print-to-user-record then-add-to-agenda-record
@@ -4897,7 +4897,7 @@
 (defunit if-parts
   worth 600
   sub-slots (if-potentially-relevant if-truly-relevant if-about-to-work-on-task
-                                     if-working-on-task if-finished-working-on-task])
+                                     if-working-on-task if-finished-working-on-task)
   isa (slot criterial-slot repr-concept anything)
   data-type lisp-pred)
 
