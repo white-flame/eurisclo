@@ -61,7 +61,8 @@
            "UNION"
            "FLATTEN"
            "MEMBER"
-           "COUNT"))
+           "COUNT"
+           "SOME"))
 
 (in-package "EURISCLO")
 
@@ -247,10 +248,12 @@
 ;; Any reference to this used to be a naked variable R in EUR
 (defvar *rule*)
 
+
+
 #|
-(setf fontchangeflg nil)                ; ;
-(setf changesarray nil)                 ; ;
-(setf prompt#flg t)                     ; ;
+(setf fontchangeflg nil)                ; ; ; ;
+(setf changesarray nil)                 ; ; ; ;
+(setf prompt#flg t)                     ; ; ; ;
 |#
 
 (defvar *eurfns* '(apply-eval add-inv add-nn add-prop-l alg all-pairs applic-args applic-gen-args applic-gen-build
@@ -274,7 +277,7 @@
                    leq-nn less-worth listify-if-nec lists-starting lists-starting-aux MAP2EVERY
                    MAPAPPEND MAXIMUM MAXIMUM2 map-and-print map-applics map-examples map-union
                    merge-props merge-tasks more-specific most-specific my-time NU n-unitp nearness-to
-                   new-nam no-repeats-in ok-bin-preds order-tasks PRINBOL PRINTASK pu pu2 percentify
+                   new-name no-repeats-in ok-bin-preds order-tasks PRINBOL PRINTASK pu pu2 percentify
                    punish-severely quoted REM1PROP random-choose randomp random-pair random-subset
                    random-subst random-subst* repeats-in report-on reset-pri rule-taking-too-long
                    run-alg run-defn SOS SQUARE START self-intersect set-diff set-difference
@@ -289,6 +292,36 @@
                    the-second-of tiny-reward true-if-it-exists un-get union-prop union-prop-l unitp wax-on
                    whole-task work-on-task work-on-task work-on-unit work-on-unit #|Duplicate?|# worth-working-on
                    xeq-if-it-exists yes-no zero-records))
+
+
+;; TODO - can this be a dynamic binding instead?
+(defvar *arg-unit* nil
+  "Stored argument carried across functions")
+
+;; TODO - some of these might be replacable by local variables
+(defvar *cur-unit* nil) ;; TODO - get unbound errors if not initialized, might be a semantic problem
+(defvar *cur-slot* nil) ;; TODO - get unbound errors if not initialized, might be a semantic problem
+(defvar *cur-val*)
+(defvar *cur-reasons*)
+(defvar *cur-sup*) ;; set to (cur-sup curent-task)
+(defvar *new-values*)
+(defvar *warn-slots*)
+(defvar *have-spec*)
+(defvar *abort-task?*)
+(defvar *old-val*) ;; TODO - written once, no reads
+(defvar *heuristic-agenda*)
+(defvar *map-cycle-time*)
+(defvar *arg-slot*)
+(defvar *space-to-use*)
+
+;; Set by my-time, odd that callers doesn't just use the return value
+(defvar *time-elapsed*)
+
+
+;; These are set by H11, but are the values never read outside of that?  there's no initial/default value anywhere
+(defvar *max-rule-time*)
+(defvar *max-rule-space*)
+
 
 
 
@@ -338,6 +371,20 @@
 (defmacro subset (list pred)
   "Returns the items of the list that met the predicate."
   `(remove-if-not ,pred ,list))
+
+(defun some (pred list)
+  "Like CL:MEMBER, returns the remainder of the list, starting with the one that passed the predicate. (car (some ..)) should be replaced with FIND-IF."
+  (cond
+    ((null list) nil)
+    ((funcall pred (car list)) list)
+    (t (some pred (cdr list)))))
+
+(defun some1 (pred list)
+  "Returns the result of the first PRED call that is non-nil"
+  (cond
+    ((null list) nil)
+    ((funcall pred (car list)))
+    (t (some1 pred (cdr list)))))
 
 (declaim (inline rand))
 (defun rand (min max)
@@ -476,6 +523,7 @@
 ;; Already done:
 ;;  LISTP -> CONSP (but IL:LISTP returns the value if it passes, not T)
 ;;  SOME1 -> FIND-IF, returns the first in the list that passes the predicate, else NIL
+;;  (CAR (SOME ...)) -> FIND-IF
 ;;  MAP2C -> MAP-PLIST if 2nd is the CDR of the first and by #'CDDR
 ;;     or -> MAPC with 2 different lists
 ;;  (EVERY2 list1 list2 fn) -> (CL:EVERY fn list1 list2)
@@ -770,14 +818,18 @@
   (declare (ignore x))
   y)
 
-(defun union-prop (a p v &optional flag kidding)
+;; Effectively a pushnew, also checking that the value isn't a failure notice
+(defun union-prop (sym prop val &optional to-head kidding)
   (or kidding
-      (member v (funcall p a))
-      (eq 'failed (car (last v)))
-      (addprop a p v flag)))
+      ;; Exists check on the property's value list
+      (member val (funcall prop sym))
+      (and (consp val)
+           (eq 'failed (car (last val))))
+      (addprop sym prop val to-head)))
 
 ;; TODO - only called once, from h24
 (defun union-prop-l (a p v &optional flag kidding)
+  "union-prop with a list of values"
   (or kidding (dolist (x v)
                 (union-prop a p x flag))))
 
@@ -790,7 +842,7 @@
 
 (defun map-plist (list func)
   "Iterates calling (func k v) for every 2 items in the list"
-  (loop for (k v) in list by #'cddr
+  (loop for (k v) on list by #'cddr
         do (funcall func k v)))
 
 (defun map-union (l f)
@@ -917,7 +969,7 @@
 (defun good-choose (l)
   "Get one of the best units from the list. Best has 50% chance, 2nd best as 25% chance, etc."
   (setf l (resolve-examples l))
-  (car (some #'randomp (sort-by-worths (copy-list l)))))
+  (find-if #'randomp (sort-by-worths (copy-list l))))
 
 (defun good-subset (l)
   "Get some number of the highest worth units from the list."
@@ -945,10 +997,9 @@
 
 
 
-;; TODO - rename to NEW-NAME
-(defun new-nam (a)
+(defun new-name (a)
   ;; TODO - I _think_ this is equivalent. Original increments a counter until the name it packs isn't UNITP.
-  (gensym a))
+  (gensym (symbol-name a)))
 
 (defun create-unit (name &optional nold)
   ;; TODO - comment
@@ -957,7 +1008,7 @@
             (warn "Must be atomic unit name! You typed: ~s" name))
            ;; If this name already exists, gensym up a fresh name and try again
            ((memb name *units*)
-            (create-unit (new-nam name) nold))
+            (create-unit (new-name name) nold))
            ((memb nold *units*)
             (push name *units*)
             (push name *new-u*)
@@ -1063,7 +1114,7 @@
           (putprop a 'isa '(slot))
           (new-unit a (and (inverse p)
                      (unitp v)
-                     (let ((tmp8 (car (some #'unitp (funcall (car (inverse p)) v)))))
+                     (let ((tmp8 (find-if #'unitp (funcall (car (inverse p)) v))))
                        (cprin1 0 " ... Copying from " tmp8 "~%")
                        tmp8)))))))
 
@@ -1108,7 +1159,6 @@
 
 (defun add-inv (un)
   "Add any known inverse slots onto the given symbol, from the slots it already has."
-  ;; Parallel iteration over plist keys & values
   (map-plist (symbol-plist un)
              (lambda (propname vals)
                (alexandria:when-let (inv (car (inverse propname)))
@@ -1274,7 +1324,7 @@
 (defun specializations (u)
   (self-intersect (nconc (mapconc (getprop 'specializations 'sub-slots)
                              (lambda (ss)
-                               (append (getprop u ss))))
+                               (copy-list (getprop u ss))))
                          (getprop u 'specializations))))
 
 (defun direct-applics (u)
@@ -1290,9 +1340,9 @@
             (not (memb (caddr a) '(nil 1))))))
 
 (defun known-applic (u a)
-  (car (some (lambda (ap)
-               (equal a (car ap)))
-             (applics u))))
+  (find-if (lambda (ap)
+             (equal a (car ap)))
+           (applics u)))
 
 
 
@@ -1716,6 +1766,9 @@
 
 (defvar *cur-pri*)
 
+;; Current task
+(defvar *task*)
+
 (defun cur-sup (esa)
   ;; TODO - comment, some sort of task field accessor
   (car (cddddr esa)))
@@ -1723,9 +1776,12 @@
 (defun cycle-through-agenda ()
   "Run tasks on the agenda, in order from the CAR."
   ;; Since the agenda might change during work, pop each task anew from the var itself.
+  ;; TODO - non-scoped setting of *task* as in EUR, I get unbound issues otherwise when I dynamically bind it
   (loop for task = (pop *agenda*)
         while task
-        do (work-on-task task)))
+        do (progn
+             (setf *task* task)
+             (work-on-task task))))
 
 (defun merge-tasks (l m)
   (prog1 (merge 'list (subset l (lambda (task-to-be-added &aux task-already-there new-reasons)
@@ -1770,12 +1826,12 @@
 
 (defun whole-task (u s sup l)
   ;; ORIG: Find a task on the agenda L which is to work on slot s of unit u
-  (car (some (lambda (z)
-               (and (eq u (extract-unit-name z))
-                    (eq s (extract-slot-name z))
-                    (equal (assoc 'slot-to-change sup)
-                           (assoc 'slot-to-change (cur-sup z)))))
-             l)))
+  (find-if (lambda (z)
+             (and (eq u (extract-unit-name z))
+                  (eq s (extract-slot-name z))
+                  (equal (assoc 'slot-to-change sup)
+                         (assoc 'slot-to-change (cur-sup z)))))
+           l))
 
 (defun worth-working-on (task)
   (>= (extract-priority task) *min-pri*))
@@ -1784,7 +1840,6 @@
 ;; TODO - duplicated in original source code?
 (defun work-on-task (task)
   (let ((*arg-unit* task)
-        (*time-elapsed*)
         (*task-results*))
     (setf *abort-task?* nil)
     (incf *task-num*)
@@ -1806,43 +1861,47 @@
       (snazzy-agenda)
       (snazzy-concept t))
     (or (every (lambda (p)
+                 ;; TODO - this *heuristic-agenda* is only used locally. But it might be useful for GUI presentation
                  (setf *heuristic-agenda* (examples 'heuristic))
-                 ;; TODO - should this use of R turn into *RULE*?  loop for will create a dynamic binding
-                 (loop for r = (pop *heuristic-agenda*)
-                       unless r return t
+                 ;; TODO - is converting R to *rule* here the right thing?
+                 (loop for *rule* = (pop *heuristic-agenda*)
+                       unless *rule* return t
                          when *abort-task?* return nil
                            do (cond
-                                ((null (funcall p r)))
-                                ((subsumed-by r))
-                                ((case (funcall (funcall p r) task)
+                                ((null (funcall p *rule*)))
+                                ((subsumed-by *rule*))
+                                ((case (funcall (funcall p *rule*) task)
                                    ;; TODO - there is no NAborts in the code? how is the slot/accessor generated?
                                    ;; TODO - HAvoid and HAvoidIfWorking set AbortTask to 'AbortTask!, but this code just checked for the literal value AbortTask so I don't know what ever triggers this case?
-                                   (abort-task (put r 'num-aborts
-                                                    (1+ (or (num-aborts r) 0)))
+                                   (abort-task (put *rule* 'num-aborts
+                                                    (1+ (or (num-aborts *rule*) 0)))
                                     (return nil))
                                    (nil nil)
                                    (otherwise
-                                    (and (cprin1 66 "  The " p " slot of heuristic " r " " (abbrev r)
+                                    (and (cprin1 66 "  The " p " slot of heuristic " *rule* " " (abbrev *rule*)
                                                  " applies to the current task.~%")
                                          (or (and (is-alto)
-                                                  (snazzy-heuristic r p))
+                                                  (snazzy-heuristic *rule* p))
                                              t)
-                                         (my-time '(every #'xeq-if-it-exists (sub-slots 'then-parts))
-                                                  '*time-elapsed*)
+                                         (my-time (lambda () (every #'xeq-if-it-exists (sub-slots 'then-parts))))
                                          (or (and (is-alto)
                                                   (snazzy-concept t))
                                              t)
                                          (cprin1 68 "       The Then Parts of the rule have been executed.~%~%")
-                                         (setf *tim-rec* (or (overall-record r)
-                                                             (put r 'overall-record (cons 0 0))))
-                                         (incf (cdr *tim-rec*))
-                                         (incf (car *tim-rec*) *time-elapsed*))))))
+                                         (update-time-record 'overall-record))))))
                        ))
                (sub-slots 'if-task-parts))
         (add-task-results 'termination 'aborted))
     (cprin1 64 " The results of this task were: " *task-results* "~%")
     (cprin1 65 "~%")
     *task-results*))
+
+;; Abstracted out of repeated pattern of use around TimRec
+(defun update-time-record (name)
+  (let ((time-record (or (funcall name *rule*)
+                         (put *rule* name (cons 0 0)))))
+    (incf (cdr time-record))
+    (incf (car time-record) *time-elapsed*)))
 
 ;; TODO - duplicated work-on-unit
 
@@ -1953,13 +2012,9 @@
           (snazzy-heuristic *rule*))
      (cprin1 66 "    All the IfParts of " *rule* " " (abbrev *rule*) " are satisfied, so we are applying the ThenParts.~%")
      (cprin1 29 *rule* " applies.~%")
-     (and (my-time '(every #'xeq-if-it-exists (sub-slots 'then-parts))
-                   '*time-elapsed*)
+     (and (my-time (lambda () (every #'xeq-if-it-exists (sub-slots 'then-parts))))
           (cprin1 68 "~%  All the ThenParts of " *rule* " " (abbrev *rule*) " have been successfully executed.~%")
-          (setf *tim-rec* (or (overall-record *rule*)
-                              (put *rule* 'overall-record (cons 0 0))))
-          (incf (cdr *tim-rec*))
-          (incf (car *tim-rec*) *time-elapsed*)
+          (update-time-record 'overall-record)
           t))))
 
 ;; TODO - interp2 was exactly duplicated back-to-back in EUR, I don't think that changes anything?
@@ -1975,13 +2030,9 @@
        (cond
          ((> *verbosity* 66) (cprin1 66 " All the IfParts of " *rule* " " (abbrev *rule*) " are satisfied, so we are applying the ThenParts.~%"))
          ((> *verbosity* 29) (cprin1 29 *rule* " applies.~%")))
-       (and (my-time '(every #'xeq-if-it-exists (sub-slots 'then-parts))
-                     '*time-elapsed*)
+       (and (my-time (lambda () (every #'xeq-if-it-exists (sub-slots 'then-parts))))
             (cprin1 68 "~%       All the ThenParts of " *rule* " " (abbrev *rule*) " have been successfully executed.~%")
-            (setf *tim-rec* (or (overall-record *rule*)
-                                (put *rule* 'overall-record (cons 0 0))))
-            (incf (cdr *tim-rec*))
-            (incf (car *tim-rec*) *time-elapsed*)
+            (update-time-record 'overall-record)
             t)))))
 
 (defun true-if-it-exists (s)
@@ -2001,20 +2052,17 @@
 (defun xeq-if-it-exists (s)
   ;; ORIG: This is an aux fn of rule interpreters. We assume that the interpreter is being run on a rule called r, which is to be applied to a unit ArgU
   ;; ORIG: This function evaluates the s part of r, which is presumably a Then- part of some sort
-  (let ((z (funcall s *rule*))
-        (*time-elapsed*)
-        (*tim-rec*))
+  (let ((z (funcall s *rule*)))
     (cond
       ((null z) t)
-      ((my-time '(funcall z *arg-unit*)
-                '*time-elapsed*)
+      ((my-time (lambda () (funcall z *arg-unit*)))
        (cprin1 80 "        the " s " slot of " *rule* " has been applied successfully to " *arg-unit* "~%")
-       (setf *tim-rec* (or (funcall (car (record s)) *rule*)
-                           (put *rule* (car (record s)) (cons 0 0))))
-       (incf (cdr *tim-rec*))
-       (incf (car *tim-rec*) *time-elapsed*)
-       (cprin1 75 "        the " s " slot of " *rule* " was applied to " *arg-unit*
-               ", but for some reason it signalled a failure.~%")))))
+       (update-time-record (car (record s)))
+       t)
+      (t (update-time-record (car (failed-record s)))
+         (cprin1 75 "        the " s " slot of " *rule* " was applied to " *arg-unit*
+                 ", but for some reason it signalled a failure.~%")
+         nil))))
 
 
 
@@ -2032,15 +2080,18 @@
   (unless save-expr?
     (remprop funcname 'expr)))
 
-(defvar *time-elapsed*)
-
-(defun my-time (ex &optional (var '*time-elapsed*))
-  (cprin1 0 "setting variable " var "~%")
-  (set var
-       ;; TODO - (clock 2) is compute/busy time not including GC, since start of the lisp environment
-       (let ((start (clock 2)))
-         (eval ex)
-         (- (clock 2) start))))
+;; Converted the expression parameter to be EVAL'd, to a func parameter to be called
+;; TODO - usage in xeq-if-exists implies this will return NIL if a failure happens, so check usage
+(defun my-time (func &optional (var '*time-elapsed*))
+  (let ((retval))
+    ;; Store the elapsed time in a var
+    (setf (symbol-value var)
+          ;; Track CPU time acruss this func
+          (let ((start (clock 2)))
+            ;; Boolean return value of the function matters
+            (setf retval (funcall func))
+            (- (clock 2) start)))
+    retval))
 
 
 
@@ -2141,7 +2192,7 @@
   (interrupts)
   (cond
     ((or doit (yes-no nil "Fully Initialize? "))
-     (prin1 "OK, defining Slots, UsedSlots, UnusedSlots, NUnitSlots as I go along... ")
+     (format t "OK, defining Slots, UsedSlots, UnusedSlots, NUnitSlots as I go along...!%")
      (setf *agenda* nil)
      (setf *conjectures* nil)
      (setf *unused-slots* nil)
@@ -2167,7 +2218,7 @@
      (setf *unused-slots* (sort *unused-slots* #'default-sort))
      (format t "unused-slots~%")
      (mapc #'define-slot *unused-slots*)
-     (prin1 "Done! ")
+     (format t "Done!!~%")
      (cprin1 0 (length (setf *slots* (merge 'list
                                             (copy-list *used-slots*)
                                             (copy-list *unused-slots*)
@@ -2268,6 +2319,7 @@
   ;; TODO - maybe some clim printing stuff, but keeping this basic for now
   (cprin1 -1 "[" s "]:" v "~%"))
 
+;; Used by snazzy renderer
 (defun printask (z)
   (cprin1 -1 (extract-priority z) " " (extract-unit-name z) " " (extract-slot-name z))
   (dolist (s (cur-sup z))
@@ -2402,32 +2454,6 @@
 ;;;;----------------------------------------
 ;;;; TODO - Unclassified Eurisko functions
 
-;; TODO - can this be a dynamic binding instead?
-(defvar *arg-unit* nil
-  "Stored argument carried across functions")
-
-;; TODO - some of these might be replacable by local variables
-(defvar *cur-unit* nil) ;; TODO - get unbound errors if not initialized, might be a semantic problem
-(defvar *cur-slot* nil) ;; TODO - get unbound errors if not initialized, might be a semantic problem
-(defvar *cur-val*)
-(defvar *cur-reasons*)
-(defvar *cur-sup*) ;; set to (cur-sup curent-task)
-(defvar *new-values*)
-(defvar *tim-rec*)
-(defvar *warn-slots*)
-(defvar *have-spec*)
-(defvar *abort-task?*)
-(defvar *old-val*) ;; TODO - written once, no reads
-(defvar *heuristic-agenda*)
-(defvar *map-cycle-time*)
-(defvar *arg-slot*)
-(defvar *space-to-use*)
-
-;; These are set by H11, but are the values never read outside of that?  there's no initial/default value anywhere
-(defvar *max-rule-time*)
-(defvar *max-rule-space*)
-
-
 
 
 
@@ -2440,14 +2466,18 @@
 
 (defun extract-input (x) (car x))
 (defun extract-output (x) (cadr x))
-(defun extract-priority (esa) (car esa))
-(defun extract-reasons (esa) (cadddr esa))
-(defun extract-slot-name (esa) (caddr esa))
-(defun extract-unit-name (task) (cadr task))
 
-(defun gen-args (x) (caddr x))
-(defun gen-build (x) (cadr x))
+;; Task field accessors
+;; (priority unit-name slot-name reasons)
+(defun extract-priority (esa) (car esa))
+(defun extract-unit-name (task) (cadr task))
+(defun extract-slot-name (esa) (caddr esa))
+(defun extract-reasons (esa) (cadddr esa))
+
+
 (defun gen-init (x) (car x))
+(defun gen-build (x) (cadr x))
+(defun gen-args (x) (caddr x))
 
 
 
@@ -2602,7 +2632,7 @@
   (if (>= (loop for ti in u sum (length (if (symbolp ti) (symbol-name ti) ti)))
             100)
       ;; Total characters in all parameters > 100
-      (let ((shorter-name (smart-pack* (mapcar #'shorten u))))
+      (let ((shorter-name (pack* (mapcar #'shorten u))))
         (case (floor *verbosity* 20)
           (0 t)
           (1 (cprin1 0 "    Oh, those long names!  I just had to shorten one.~%"))
@@ -2645,9 +2675,9 @@
                            (when tmp
                              (let ((ff (cond
                                          ((symbolp f) f)
-                                         ((car (some (lambda (u)
-                                                       (eq f (getproplist u)))
-                                                     *units*)))
+                                         ((find-if (lambda (u)
+                                                     (eq f (getproplist u)))
+                                                   *units*))
                                          (t nil))))
                                (when (symbolp f)
                                  (MARKASCHANGED f))
@@ -3020,7 +3050,7 @@
   worth 500
   unitized-defn (lambda (s)
                   (and (run-defn 'set s)
-                       ;; BUGFIX - OPair missing a quote
+                       ;; BUGFIX - OPair was missing a quote
                        (every (lambda (n) (run-defn 'o-pair n)) s))))
 
 (defunit set-of-o-pairs
@@ -4635,9 +4665,9 @@
                 (declare (ignore p))
                 ;; ORIG: U1 is on the P property of unit U2, and is now being deleted. We must remove accreditation of U2 from the Applics slot of U1
                 ;; TODO - but P is unused in the original code, too? or is that another dynamic binding? or it's legitimately ignored, as we're removing effects of stuff being deleted from P, but not ever accessing it ourselves?
-                (rem1prop u1 'applics (car (some (applics u1)
-                                                 (lambda (a)
-                                                   (eq (caadr a) u2))))))
+                (rem1prop u1 'applics (find-if (lambda (a)
+                                                 (eq (caadr a) u2))
+                                               (applics u1))))
   worth 300
   isa (slot non-criterial-slot repr-concept anything)
   data-type unit)
@@ -4850,7 +4880,7 @@
                ;;        Removed it, because it was always selected and did nothing
                ;;        There is also an h1-11 referred to in applics logs
                ;;        These are specializations of h1 that ran at some point, but weren't saved?
-               ;; TODO - but why does the interlisp version work with these in live data?
+               ;; TODO - but why does the interlisp version work with these uncommented in live data?
                ;;        ensure that when this is re-enabled, it doesn't always try to fire it
                h28 h20 #|h1-6|#)
   isa (repr-concept anything category)
@@ -5559,10 +5589,10 @@
                                (every tempdef u)
                                (setf tempdef (subset u (lambda (e)
                                                          (run-alg p e))))
-                               (setf temp2 (car (some (lambda (p2)
-                                                        (and (run-defn (cadr (domain p2)) tempdef)
-                                                             (run-alg p2 u tempdef)))
-                                                      (ok-bin-preds u))))
+                               (setf temp2 (find-if (lambda (p2)
+                                                      (and (run-defn (cadr (domain p2)) tempdef)
+                                                           (run-alg p2 u tempdef)))
+                                                    (ok-bin-preds u)))
                                (cprin1 14 "~%The set of elements of " u
                                        " which satisfy the rare predicate " p
                                        " form a very special subset; namely, there are in relation " temp2

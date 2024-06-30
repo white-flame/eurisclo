@@ -60,12 +60,12 @@
   if-truly-relevant (lambda (f)
                       ;; ORIG: Check that some Applics of F have high Worth, but most have low Worth
                       ;; ORIG: The extent to which those conditions are met will determine the amount of energy to expend working on applying this rule -- its overall relevancy
-                      (and (some (applics f)
-                                 '(lambda (a)
+                      (and (some (lambda (a)
                                    ;; ORIG: these will have the format (args results)
-                                   (some #'has-high-worth (cadr a))))
+                                   (some #'has-high-worth (cadr a)))
+                                 (applics f))
                            (> 0.2 (setf *fraction* (fraction-of (map-union (applics f) #'cadr)
-                                                                'has-high-worth)))
+                                                                #'has-high-worth)))
                            (not (subsumed-by f))))
   worth 724
   applics (((sit1) (win1 los1))
@@ -82,7 +82,7 @@
                                ", and (to that end) has added a new task to the agenda to find such specializations. ")
                        t)
   then-conjecture (lambda (f)
-                    (let ((*conjec* (new-nam '*conjec*)))
+                    (let ((*conjec* (new-name 'conjec)))
                       (create-unit *conjec* 'proto-conjec)
                       (put *conjec* 'english `("Specializations of" ,f "may be more useful than it is, since it has some good instances but many more poor ones. (" ,(percentify (- 1.0 *fraction*)) "are losers)"))
                       (put *conjec* 'abbrev `(,f "sometimes wins, usually loses, so specializations of it may win big"))
@@ -168,7 +168,7 @@
   english "IF the current task is to specialize a unit, but no specific slot to specialize is yet known, THEN choose one"
   if-potentially-relevant null
   worth 101
-  applics ((sit1) (win1 los1))
+  applics (((sit1) (win1 los1)))
   abbrev "Randomly choose a slot to specialize"
   if-working-on-task (lambda (task)
                        (declare (ignore task))
@@ -517,17 +517,17 @@
                       (or (memb 'category (isa f))
                           (memb 'op (isa f))))
   worth 700
-  abbrev "Instantiate a concept having no known instnaces"
+  abbrev ("Instantiate a concept having no known instances")
   then-print-to-user (lambda (f)
                        (cprin1 13 "~%Since " f " has no known " (instances f)
                                ", it is probably worth looking for some.~%")
                        t)
   then-add-to-agenda (lambda (f)
-                       (add-to-agenda (list (list (average-worths f 'h7))
-                                            f
-                                            (instances f)
-                                            (list (subst f 'f '("To properly study f we must gather empirical data about instances of that concept")))
-                                            (list (list 'credit-to 'h7))))
+                       (add-to-agenda `((,(average-worths f 'h7)
+                                         ,f
+                                         ,(instances f)
+                                         (,(subst f 'f '("To properly study " f " we must gather empirical data about instances of that concept")))
+                                         ((credit-to h7)))))
                        (add-task-results 'new-tasks '("1 unit must be instantiated")))
   then-add-to-agenda-record (11017 . 172)
   then-print-to-user-record (21543 . 172)
@@ -866,7 +866,7 @@
   then-compute-failed-record (1319487 . 23)
   arity 1)
 
-(putprops h12
+(defheuristic h12
   isa (hind-sight-rule heuristic op anything)
   english "IF C is about to die, then try to form a new heuristic, one which -- had it existed earlier -- would have prevented C from ever being defined in the first place"
   if-potentially-relevant (lambda (f)
@@ -880,9 +880,9 @@
                                "when trying to find " *g-slot* " of that unit.  We learned our lesson from " *arg-unit* "~%~%"))
   then-compute (lambda (c)
                  (and (setf *c-slot* (cadr (assoc 'slot-to-change
-                                                  (car (cddddr (setf *c-task* (caddar (car (some (applics (car (creditors c)))
-                                                                                                 (lambda (a)
-                                                                                                   (memb c (cadr a))))))))))))
+                                                  (car (cddddr (setf *c-task* (caddar (find-if (lambda (a)
+                                                                                                 (memb c (cadr a)))
+                                                                                               (applics (car (creditors c)))))))))))
                       (setq *g-slot* (caddr *c-task*))
                       (or (<= (length (setf *c-slot-sibs* (sib-slots *c-slot*)))
                               50)
@@ -944,9 +944,9 @@
                                " slots of a unit when trying to find " *g-slot*
                                " of that unit.  We learned our lesson from " *arg-unit* "~%~%"))
   then-compute (lambda (c)
-                 (let ((c-t-res (car (some (applics (car (creditors c)))
-                                           (lambda (a)
-                                             (memb c (cadr a)))))))
+                 (let ((c-t-res (find-if (lambda (a)
+                                           (memb c (cadr a)))
+                                         (applics (car (creditors c))))))
                    (and (setf *c-slot* (cadr (assoc 'slot-to-change
                                                     (car (cddddr (setf *c-task* (caddar c-t-res)))))))
                         (setf *g-slot* (caddr *c-task*))
@@ -955,15 +955,15 @@
                             (setf *c-slot-sibs* (list *c-slot*)))
                         (or *c-slot-sibs*
                             (setf *c-slot-sibs* (list *c-slot*)))
-                        (some (car (last c-t-res))
-                              (lambda (z)
+                        (some (lambda (z)
                                 (cond ((not (listp z))
                                        nil)
                                       ((eq (cadr z) '->)
                                        (setf *c-from* (car z))
                                        (setf *c-to* (caddr z))
                                        t)
-                                      (t nil)))))))
+                                      (t nil)))
+                              (car (last c-t-res))))))
   then-define-new-concepts (lambda (task)
                              (let ((new-unit (create-unit 'h-avoid-2 'h-avoid-2)))
                                ;; TODO - should these subpair names be their earmuffed names?
@@ -1018,9 +1018,9 @@
                                " inside any of these " *c-slot-sibs* " slots of a unit when trying to find " *g-slot*
                                " of that unit.  We learned our lesson from " *arg-unit* "~%~%"))
   then-compute (lambda (c)
-                 (let ((c-t-res (car (some (applics (car (creditors c)))
-                                           (lambda (a)
-                                             (memb c (cadr a)))))))
+                 (let ((c-t-res (find-if (lambda (a)
+                                           (memb c (cadr a)))
+                                         (applics (car (creditors c))))))
                    (and (setf *c-slot*
                               (cadr (assoc 'slot-to-change
                                            (car (cddddr (setf *c-task*
@@ -1030,13 +1030,13 @@
                                 50)
                             (setf *c-slot-sibs* (list *c-slot*)))
                         (or *c-slot-sibs* (setf *c-slot-sibs* (list *c-slot*)))
-                        (some (car (last c-t-res))
-                              (lambda (z)
+                        (some (lambda (z)
                                 (cond ((eq (cadr z) '->)
                                        (setf *c-from* (car z))
                                        (setf *c-to* (caddr z))
                                        t)
-                                      (t nil)))))))
+                                      (t nil)))
+                              (car (last c-t-res))))))
   then-define-new-concepts (lambda (task)
                              (let ((new-unit (create-unit 'h-avoid-3 'h-avoid-3)))
                                (setproplist new-unit (subpair '(g-slot c-slot c-slot-sibs not-for-real c-from c-to)
@@ -1062,18 +1062,18 @@
                                             ,(decrement-credit-assignment))))
                                (put new-unit 'creditors (push 'h14 *creditors*)))
                              t)
-  applics ((task-num 87 (h1-11 applics) "29-mar-81 16:36:33")
-           (h-avoid-3-first)
-           1
-           ("Specialized" h-avoid-3 "as follows: " ((c-from -> and)
-                                                    (c-to -> the-first-of)
-                                                    (c-slot -> if-working-on-task)
-                                                    (c-slot-sibs -> (if-potentially-relevant
-                                                                     if-truly-relevant
-                                                                     if-about-to-work-on-task
-                                                                     if-working-on-task
-                                                                     if-finished-working-on-task))
-                                                    (g-slot -> generalizations))))
+  applics (((task-num 87 (h1-11 applics) "29-mar-81 16:36:33")
+             (h-avoid-3-first)
+             1
+             ("Specialized" h-avoid-3 "as follows: " ((c-from -> and)
+                                                      (c-to -> the-first-of)
+                                                      (c-slot -> if-working-on-task)
+                                                      (c-slot-sibs -> (if-potentially-relevant
+                                                                       if-truly-relevant
+                                                                       if-about-to-work-on-task
+                                                                       if-working-on-task
+                                                                       if-finished-working-on-task))
+                                                      (g-slot -> generalizations)))))
   arity 1)
 
 (defheuristic h15
@@ -1155,11 +1155,12 @@
                       ;; ORIG: the extent to which these conditions are met will
                       ;;       determine the amoun of energy to expend working on
                       ;;       applying this rule -- its overall relevancy
-                      (and (some (applics f)
-                                 ;; TODO - quoted lambda? is this being passed for evaluation somehow?
-                                 '(lambda (a)
+                      ;; TODO - lambda was quoted, I think it's equivalent to have it unquoted,
+                      ;;        unless it NEEDED some interpreter-specific feature?
+                      (and (some (lambda (a)
                                    ;; ORIG: this will have the format (args results)
-                                   (some (cadr a) #'has-high-worth)))
+                                   (some #'has-high-worth (cadr a)))
+                                 (applics f))
                            (> (setf *fraction* (fraction-of (map-union (applics f) #'cadr)
                                                             'has-high-worth))
                               0.1)
@@ -1173,7 +1174,7 @@
                        t)
   then-conjecture (lambda (f)
                     (push (progn
-                            (setf *conjec* (new-nam 'conjec))
+                            (setf *conjec* (new-name 'conjec))
                             (create-unit *conjec* 'proto-conjec)
                             (put *conjec* 'english
                                  `("Generalizations of"
@@ -1340,15 +1341,15 @@
                                      (setf *doomed-u*
                                            (subset *new-units*
                                                    (lambda (u)
-                                                     (some (delete u (map-union (isa u) 'examples))
-                                                           (lambda (z)
+                                                     (some (lambda (z)
                                                              ;; ORIG: See if U and Z are equivalent units
                                                              (every (intersection (propnames u)
                                                                                   (examples 'slot))
                                                                     (lambda (p)
                                                                       (equal-to-within-subst u z
                                                                                              (funcall p u)
-                                                                                             (funcall p z)))))))))))
+                                                                                             (funcall p z)))))
+                                                           (delete u (map-union (isa u) 'examples))))))))
   then-print-to-user (lambda (c)
                        (declare (ignore c))
                        (cprin1 14 "~%Hmf~ " (length *doomed-u*) " of the " (length *new-units*)
@@ -1379,17 +1380,17 @@
                                      (assoc 'new-units *task-results*)
                                      (setf *doomed-u* (subset *new-units*
                                                               (lambda (u)
-                                                                (some (union (cons *cur-unit*
-                                                                                   (getprop *cur-unit* 'specializations))
-                                                                             (delete u (map-union (isa u) #'examples)))
-                                                                      (lambda (z)
+                                                                (some (lambda (z)
                                                                         ;; ORIG: See if U and Z are equivalent units
                                                                         (every (intersection (propnames u)
                                                                                              (examples 'criterial-slot))
                                                                                (lambda (p)
                                                                                  (equal-to-within-subst u z
                                                                                                         (funcall p u)
-                                                                                                        (funcall p z)))))))))))
+                                                                                                        (funcall p z)))))
+                                                                      (union (cons *cur-unit*
+                                                                                   (getprop *cur-unit* 'specializations))
+                                                                             (delete u (map-union (isa u) #'examples)))))))))
   then-print-to-user (lambda (c)
                        (declare (ignore c))
                        (cprin1 14 "~%Hmf! " (length *doomed-u*) " of the " (length *new-units*) " new units "
@@ -1482,7 +1483,7 @@
                     (declare (ignore task))
                     (dolist (u2 *res-u*)
                       (push (progn
-                              (setf *conjec* (new-nam 'conjec))
+                              (setf *conjec* (new-name 'conjec))
                               (create-unit *conjec* 'proto-conjec)
                               (put *conjec* 'english
                                    `("All applics of" ,u2 "are also applics of " ,*cur-unit*
@@ -1654,15 +1655,14 @@
                                ;; Original didn't have Worth quoted, probably a bug
                                (put new-unit 'worth (average-worths f 'h25))
                                (add-task-results 'new-units new-unit)
-                               ;; TODO - is TASK the same as F? might be a copy-paste error
                                (addprop 'h25 'applics
-                                        `((task-num ,*task-num* ,task ,(date))
+                                        `((task-num ,*task-num* ,*task* ,(date))
                                           (,new-unit)
                                           ,(initialize-credit-assignment)
                                           ("Defined satisfying set for predicate" ,f)))
                                (dolist (h (setf *creditors* (cdr (assoc 'credit-to *cur-sup*))))
                                  (addprop h 'applics
-                                          `((task-num ,*task-num* ,task ,(date))
+                                          `((task-num ,*task-num* ,*task* ,(date))
                                             (,new-unit)
                                             ,(decrement-credit-assignment))))
                                (put new-unit 'creditors (push 'h25 *creditors*))
@@ -1702,13 +1702,13 @@
                                (put new-unit 'worth (average-worths f 'h26))
                                (add-task-results 'new-units new-unit)
                                (addprop 'h26 'applics
-                                        (list (list 'task-num *task-num* task (date))
+                                        (list (list 'task-num *task-num* *task* (date))
                                               (list new-unit)
                                               (decrement-credit-assignment)
                                               (list "Defined failing set for predicate" f)))
                                (dolist (h (setf *creditors* (cdr (assoc 'credit-to *cur-sup*))))
                                  (addprop h 'applics
-                                          (list (list 'task-num *task-num* task (date))
+                                          (list (list 'task-num *task-num* *task* (date))
                                                 (list new-unit)
                                                 (decrement-credit-assignment))))
                                (put new-unit 'creditors (push 'h26 *creditors*))
@@ -1747,7 +1747,7 @@
                                (put new-unit 'worth (average-worths f 'h27))
                                (add-task-results 'new-units new-unit)
                                (addprop 'h27 'applics
-                                        (list (list 'task-num *task-num* task (date))
+                                        (list (list 'task-num *task-num* *task* (date))
                                               (list new-unit)
                                               (initialize-credit-assignment)
                                               ;; TODO - PACK* was quoted?
@@ -1755,7 +1755,7 @@
                                                     "for unary predicate" f)))
                                (dolist (h (setf *creditors* (cdr (assoc 'credit-to *cur-sup*))))
                                  (addprop h 'applics
-                                          (list (list 'task-num *task-num* task (date))
+                                          (list (list 'task-num *task-num* *task* (date))
                                                 (list new-unit)
                                                 (decrement-credit-assignment))))
                                (put new-unit 'creditors (push 'h27 *creditors*))
@@ -1788,14 +1788,14 @@
                                (add-task-results 'new-units new-unit)
                                (addprop 'h28 'applics
                                         ;; TODO - this needs to be an ADD-APPLIC form
-                                        (list (list 'task-num *task-num* task (date))
+                                        (list (list 'task-num *task-num* *task* (date))
                                               (list new-unit)
                                               (initialize-credit-assignment)
                                               ;; TODO - the PACK* form was quoted in the original, probably didn't print right?
                                               (list "Defined failing" (pack* (car (domain f)) 's) "for unary predicate" f)))
                                (dolist (h (setf *creditors* (cdr (assoc 'credit-to *cur-sup*))))
                                  (addprop h 'applics
-                                          (list (list 'task-num *task-num* task (date))
+                                          (list (list 'task-num *task-num* *task* (date))
                                                 (list new-unit)
                                                 (decrement-credit-assignment))))
                                (put new-unit 'creditors (push 'h28 *creditors*))
@@ -1894,14 +1894,15 @@
                                      (memb (cadr (assoc 'slot-to-change *cur-sup*))
                                            'c-slot-sibs)
                                      (setf *doomed-u* (subset *new-units* (lambda (u)
-                                                                            ;; TODO - unwind/relabel some of this
-                                                                            (some (car (last (car (some (applics (car (creditors u)))
-                                                                                                        (lambda (a)
-                                                                                                          (memb u (cadr a)))))))
-                                                                                  ;; Match a (c-from -> ...) applics shape
-                                                                                  (lambda (z)
-                                                                                    (and (eq (cadr z) '->)
-                                                                                         (eq (car z) 'c-from)))))))))
+                                                                            (some 
+                                                                             ;; Match a (c-from -> ...) applics shape
+                                                                             (lambda (z)
+                                                                               (and (eq (cadr z) '->)
+                                                                                    (eq (car z) 'c-from)))
+                                                                             ;; TODO - unwind/relabel some of this
+                                                                             (car (last (find-if (lambda (a)
+                                                                                                   (memb u (cadr a)))
+                                                                                                 (applics (car (creditors u))))))))))))
   then-print-to-user (lambda (c)
                        (declare (ignore c))
                        (cprin1 14 "~%Hm; I have had bad experiences in the past trying to find " 'g-slot
@@ -1936,12 +1937,12 @@
                                              if-working-on-task
                                              if-finished-working-on-task))
                                      (setf *doomed-u* (subset *new-units* (lambda (u)
-                                                                            (some (car (last (car (some (applics (car (creditors u)))
-                                                                                                        (lambda (a)
-                                                                                                          (memb u (cadr a)))))))
-                                                                                  (lambda (z)
+                                                                            (some (lambda (z)
                                                                                     (and (eq (cadr z) '->)
-                                                                                         (eq (car z) 'and)))))))))
+                                                                                         (eq (car z) 'and)))
+                                                                                  (car (last (find-if (lambda (a)
+                                                                                                        (memb u (cadr a)))
+                                                                                                      (applics (car (creditors u))))))))))))
   then-print-to-user (lambda (c)
                        (declare (ignore c))
                        (cprin1 14 "~%Hm; I have had bad experiences in the past trying to find " 'generalizations
@@ -1971,12 +1972,12 @@
                                            'c-slot-sibs)
                                      (setf *doomed-u* (subset *new-units*
                                                               (lambda (u)
-                                                                (some (car (last (some (applics (car (creditors u)))
-                                                                                       (lambda (a)
-                                                                                         (memb u (cadr a))))))
-                                                                      (lambda (z)
+                                                                (some (lambda (z)
                                                                         (and (eq (cadr z) '->)
-                                                                             (eq (caddr z) 'c-to)))))))))
+                                                                             (eq (caddr z) 'c-to)))
+                                                                      (car (last (some (lambda (a)
+                                                                                         (memb u (cadr a)))
+                                                                                       (applics (car (creditors u))))))))))))
   then-print-to-user (lambda (c)
                        (declare (ignore c))
                        (cprin1 14 "~%Hm; I have had bad experiences in the past trying to find " 'g-slot
@@ -2008,12 +2009,12 @@
                                              if-finished-working-on-task))
                                      (setf *doomed-u* (subset *new-units*
                                                               (lambda (u)
-                                                                (some (car (last (some (applics (car (creditors u)))
-                                                                                       (lambda (a)
-                                                                                         (memb u (cadr a))))))
-                                                                      (lambda (z)
+                                                                (some (lambda (z)
                                                                         (and (eq (cadr z) '->)
-                                                                             (eq (caddr z) 'the-first-of)))))))))
+                                                                             (eq (caddr z) 'the-first-of)))
+                                                                      (car (last (some (lambda (a)
+                                                                                         (memb u (cadr a)))
+                                                                                       (applics (car (creditors u))))))))))))
   then-print-to-user (lambda (c)
                        (declare (ignore c))
                        (cprin1 14 "~%Hm; I have had bad experiences in the past trying to find " 'generalizations
