@@ -1,4 +1,4 @@
-;; Dribble/trace files:
+;; Dribble/trace/output files:
 ;;  1981-02-26 17:15  EUR[AM,DBL]1
 ;;   1981-02-26 17:19  RLL.DRI[AM,DBL]
 ;;   1981-03-20 10:44  TRACE.MAR[AM,DBL]
@@ -11,6 +11,8 @@
 ;;   1981-03-29 20:07  T329.8[AM,DBL]
 ;;   1981-03-29 20:07  T329.9[AM,DBL]
 ;;  1981-05-19 12:27  EUR[AM,DBL]3  <- this is the version I ported
+;;   1981-06-29 23:05  FLEET.Q
+;;   1981-06-30 09:35  FLEET.C
 
 ;; Searching for RLL:
 ;;  RECORD[RLL,DBL] seems to have a lot, but not all, of RLL docmented functions
@@ -2086,7 +2088,7 @@
   (let ((retval))
     ;; Store the elapsed time in a var
     (setf (symbol-value var)
-          ;; Track CPU time acruss this func
+          ;; Track CPU time across this func
           (let ((start (clock 2)))
             ;; Boolean return value of the function matters
             (setf retval (funcall func))
@@ -3197,7 +3199,7 @@
                         ((eq x (car s)) t)
                         (t (run-alg 'memb x (cdr s)))))
   is-a-int (binary-pred)
-  rarity (0.1.1 9))
+  rarity (0.1 1 9))
 
 (defunit member
   worth 500
