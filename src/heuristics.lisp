@@ -1118,9 +1118,9 @@
                        (cond (*space-to-use* ;; ORIG: There were some Applics of OpToUse
                               t)
                              (t (add-to-agenda `((,(floor *cur-pri* 2)
-                                                  ,*cur-unit* *cur-slot* (("Had to suspend whilst gathering applics of"
-                                                                           ,*ops-to-use*)
-                                                                          ,(car *cur-reasons*))
+                                                  ,*cur-unit* ,*cur-slot* (("Had to suspend whilst gathering applics of"
+                                                                            ,*ops-to-use*)
+                                                                           ,(car *cur-reasons*))
                                                   ,*cur-sup*
                                                   ,@ (mapcar (lambda (otu)
                                                                `(,(1- *cur-pri*)
