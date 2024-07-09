@@ -437,7 +437,10 @@
 
 (defun getprop (symbol key)
   "Return a single property value"
-  (get symbol key))
+  ;; Interlisp returns NIL if symbol isn't a symbol
+  ;; Units can be raw numbers, which was blowing this up before the check
+  (and (symbolp symbol)
+       (get symbol key)))
 
 (defun getproplist (symbol)
   "Return the entire proplist"
@@ -1862,38 +1865,44 @@
       (snazzy-task)
       (snazzy-agenda)
       (snazzy-concept t))
-    (or (every (lambda (p)
-                 ;; TODO - this *heuristic-agenda* is only used locally. But it might be useful for GUI presentation
-                 (setf *heuristic-agenda* (examples 'heuristic))
-                 ;; TODO - is converting R to *rule* here the right thing?
-                 (loop for *rule* = (pop *heuristic-agenda*)
-                       unless *rule* return t
-                         when *abort-task?* return nil
+    ;; Every slot-name processing must return true, else we're aborting the task
+    ;; TODO - slot-name was originally p, if that happened to be visible elsewhere
+    (unless (every (lambda (slot-name)
+                     ;; TODO - this *heuristic-agenda* is only used locally, so it could be a loop initializer.
+                     ;;        But it might be useful in a public state for GUI presentation?
+                     (setf *heuristic-agenda* (examples 'heuristic))
+                     ;; TODO - is converting R to *rule* here the right thing?
+                     (loop for *rule* = (pop *heuristic-agenda*)
+                           when *abort-task?*
+                             return nil
+                           unless *rule*
+                             return t
                            do (cond
-                                ((null (funcall p *rule*)))
+                                ;; Next iteration heuristic, if it doesn't have this slot
+                                ((null (funcall slot-name *rule*)))
+                                ;; If this rule is subsumed by any other rule, ignore it and assumedly
+                                ;; process the one that subsumes this elsewhere in the loop
                                 ((subsumed-by *rule*))
-                                ((case (funcall (funcall p *rule*) task)
+                                ((case (funcall (funcall slot-name *rule*) task)
                                    ;; TODO - there is no NAborts in the code? how is the slot/accessor generated?
-                                   ;; TODO - HAvoid and HAvoidIfWorking set AbortTask to 'AbortTask!, but this code just checked for the literal value AbortTask so I don't know what ever triggers this case?
                                    (abort-task (put *rule* 'num-aborts
                                                     (1+ (or (num-aborts *rule*) 0)))
                                     (return nil))
-                                   (nil nil)
+                                   ((nil) nil)
                                    (otherwise
-                                    (and (cprin1 66 "  The " p " slot of heuristic " *rule* " " (abbrev *rule*)
+                                    (and (cprin1 66 "  The " slot-name " slot of heuristic " *rule* " " (abbrev *rule*)
                                                  " applies to the current task.~%")
                                          (or (and (is-alto)
-                                                  (snazzy-heuristic *rule* p))
+                                                  (snazzy-heuristic *rule* slot-name))
                                              t)
                                          (my-time (lambda () (every #'xeq-if-it-exists (sub-slots 'then-parts))))
                                          (or (and (is-alto)
                                                   (snazzy-concept t))
                                              t)
                                          (cprin1 68 "       The Then Parts of the rule have been executed.~%~%")
-                                         (update-time-record 'overall-record))))))
-                       ))
-               (sub-slots 'if-task-parts))
-        (add-task-results 'termination 'aborted))
+                                         (update-time-record 'overall-record))))))))
+                   (sub-slots 'if-task-parts))
+      (add-task-results 'termination 'aborted))
     (cprin1 64 " The results of this task were: " *task-results* "~%")
     (cprin1 65 "~%")
     *task-results*))
@@ -2273,9 +2282,10 @@
                ;; TODO - by just hitting maximum worth, this will always start with the exact same units in order?
                (push (work-on-unit (maximum uu #'worth)) units-focused-on)
                (and (is-alto)
-                    (null *agenda*)
+                    ;;(null *agenda*)
                     ;;(DSPRESET BitAgenda)
-                    (cprin1 (length uu) " concepts still must be focused on sometime"))))))
+                    ;;(cprin1 (length uu) " concepts still must be focused on sometime")
+                    )))))
 
 
 

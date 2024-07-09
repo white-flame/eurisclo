@@ -717,7 +717,7 @@
   english "IF the current task is to find application-instances of a unit f, and it has an Algorithm for computing its values, and it has a Domain, THEN choose examples of its domain component/s, and run the alg for f on such inputs"
   if-potentially-relevant null
   worth 700
-  abbrev "Applics (f) may be foun by funning Alg (f) on members of u's Domain)"
+  abbrev "Applics (f) may be found by running Alg (f) on members of u's Domain)"
   if-working-on-task (lambda (task)
                        (declare (ignore task))
                        (and (eq *cur-slot* 'applics)
@@ -1876,6 +1876,7 @@
                                " of units by altering their " 'c-slot
                                " slot, and this is similar; "
                                " I'm just going to abort this entire task!~%")
+                       ;; TODO - the literal value should lose the exclamation mark, as the test checks for 'abort-task
                        (setf *abort-task?* 'abort-task!))
   arity 1)
 
@@ -2044,6 +2045,13 @@
                                   (eq (cadr (assoc 'slot-to-change *cur-sup*))
                                       'if-working-on-task)
                                   (not (eq 1 (rand 1 10)))))
+  then-print-to-user (lambda (task)
+                       (cprin1 14 "~%Hm; I have had bad experiences in the past trying to find "
+                               'generalizations " of units by altering their "
+                               'if-working-on-task " slot, and this is similar; "
+                               " I'm just going to abort this entire task!~%")
+                       ;; TODO - lose the exclamation mark?
+                       (setf *abort-task?* 'abort-task!))
   arity 1)
 
 
