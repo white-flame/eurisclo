@@ -1964,8 +1964,8 @@
 ;; TODO - these are repetitive with their RULE-TAKING-TOO-* counterparts
 (defun taking-too-long (j when-to-check max-real-time)
   (cond
-    ((< j 1)
-     (setq *map-cycle-time* (clock 0))
+    ((<= j 1)
+     (setf *map-cycle-time* (clock 0))
      nil)
     ((and (eq 0 (rem j when-to-check))
           (>= (- (clock 0) *map-cycle-time*)

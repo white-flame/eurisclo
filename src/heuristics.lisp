@@ -571,7 +571,7 @@
                  (setf *cur-val* (funcall *cur-slot* *cur-unit*))
                  (setf *domain-tests* (mapcar #'defn (domain *cur-unit*)))
                  (dolist (z *space-to-use*)
-                   (map-applics z (lambda (i temp)
+                   (map-applics z (lambda (i)
                                     (and (not (known-applic *cur-unit* (applic-args i)))
                                          (equal (length *domain-tests*)
                                                 (applic-args i))
@@ -582,8 +582,8 @@
                                                always (funcall dt a))
                                          ;; TODO - orig (errorset '(apply *alg-to-use* (applic-args i)) 'nobreak)
                                          ;;  The 'nobreak portion disables breaks for timeout or something? not sure
-                                         (setf temp (ignore-errors (apply *alg-to-use* (applic-args i))))
-                                         (union-prop *cur-unit* 'applics (list (applic-args i) (car temp)))))
+                                         (let ((temp (ignore-errors (apply *alg-to-use* (applic-args i)))))
+                                           (union-prop *cur-unit* 'applics (list (applic-args i) (car temp))))))
                                 100))
                  (and (setf *new-values* (set-difference (applics *cur-unit*)
                                                          *cur-val*))
@@ -1117,18 +1117,18 @@
                        (declare (ignore task))
                        (cond (*space-to-use* ;; ORIG: There were some Applics of OpToUse
                               t)
-                             (t (add-to-agenda `(,(floor *cur-pri* 2)
-                                                 ,*cur-unit* *cur-slot* (("Had to suspend whilst gathering applics of"
-                                                                          ,*ops-to-use*)
-                                                                         ,(car *cur-reasons*))
-                                                 ,*cur-sup*
-                                                 ,@ (mapcar (lambda (otu)
-                                                              `(,(1- *cur-pri*)
-                                                                ,otu applics
-                                                                (("Recent task was stymied for lack of such applics; namely, tryign to find Examples of"
-                                                                  ,*cur-unit*)
-                                                                 ((credit-to h15)))))
-                                                            *ops-to-use*)))
+                             (t (add-to-agenda `((,(floor *cur-pri* 2)
+                                                  ,*cur-unit* *cur-slot* (("Had to suspend whilst gathering applics of"
+                                                                           ,*ops-to-use*)
+                                                                          ,(car *cur-reasons*))
+                                                  ,*cur-sup*
+                                                  ,@ (mapcar (lambda (otu)
+                                                               `(,(1- *cur-pri*)
+                                                                 ,otu applics
+                                                                 (("Recent task was stymied for lack of such applics; namely, tryign to find Examples of"
+                                                                   ,*cur-unit*)
+                                                                  ((credit-to h15)))))
+                                                             *ops-to-use*))))
                                 (add-task-results 'new-tasks
                                                   `(,(length *ops-to-use*)
                                                     "task to find Applics of" ,*ops-to-use*
