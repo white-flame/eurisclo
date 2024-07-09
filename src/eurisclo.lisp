@@ -391,6 +391,9 @@
 (declaim (inline rand))
 (defun rand (min max)
   "Random number inclusive on both ends."
+  ;; IL allows (RAND 10 0) and returns 0-10
+  (when (> min max)
+    (rotatef min max))
   (+ min (random (1+ (- max min)))))
 
 (defun nth (list n)
