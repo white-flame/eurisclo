@@ -1297,12 +1297,16 @@
       (find-if (lambda (s)
                  (funcall s u))
                (sub-slots 'defn))
-      ;; TODO - was (isa u 'category), I think this is what it meant, as #'isa is just a slot reader
-      (and (is-a-kind-of u 'category)
+      ;; TODO - was (isa u 'category), which is a misuse passing an extra param, which IL ignores
+      ;;        It's just returning the isa list, which will be non-nil on everything but raw
+      ;;        numbers, because everything is an Anything.
+      ;; Could have been meant to be (memb 'category (usa u)), or (is-a-kind-of u 'category) depending on depth,
+      ;; but returning NIL from here breaks things when that test fails
+      (and (memb 'category (isa u)) ;;(is-a-kind-of u 'category)
            ;; Defn of a category is an ISA test
-           ;; TODO - return a closure, or this source code?
-           `(lambda (z)
-              (memb ',u (isa z))))))
+           ;; TODO - this was returning literal source code, which killed a funcall/APPLY*. Trying a closure instead.
+           (lambda (z)
+              (memb u (isa z))))))
 
 (defun examples (u &optional looked-thru)
   ;; TODO - comment
