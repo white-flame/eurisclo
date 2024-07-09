@@ -639,6 +639,7 @@
                                                  nil))
                                             (union-prop *cur-unit* 'examples i)))
                                    400)
+                     (cprin1 57 "~%")
                      (and (setf *new-values* (set-difference (examples *cur-unit*) *cur-val*))
                           (push (list 'new-values (list *cur-unit* *cur-slot* *new-values*
                                                         (list "By examining examples of" *space-to-use*
@@ -844,6 +845,7 @@
                                                 (cprin1 62 (if maybe-failed "-" "+"))))
                                       until (rule-taking-too-long)
                                       finally (setf n-tried j))))
+                   (cprin1 62 "~%")
                    (and (setf *new-values* (set-difference (applics *cur-unit*) *cur-val*))
                                         ;: TODO - some of the add-task-results should be a simple push, not adding key/val stuff!
                         (push (list 'new-values
@@ -1572,8 +1574,9 @@
                        (progn
                          (cprin1 56 "-")
                          nil)))
+                 (cprin1 55 "~%")
                  (when (setf *new-values* (set-difference (funcall *cur-slot* *cur-unit*)
-                                                         *cur-val*))
+                                                          *cur-val*))
                    (add-task-results 'new-values
                                      `(,*cur-unit*
                                        ,*cur-slot*
