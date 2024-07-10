@@ -170,7 +170,6 @@
 (defvar *slots-to-elim-initially* nil)
 (defvar *special-non-units* '(t nil))
 (defvar *synth-u* '(h19-criterial h5-criterial h5-good h-avoid-2-and h-avoid-3-first h-avoid-if-working))
-(defvar *temp-caches* '((REMPROP 'anything 'examples)))
 (defvar *undo-kill* nil)
 (defvar *units* '(int-applics mult-ele-struc-insert h29 h28 h27 h26 h25 rarity why-int h24 h23 is-a-int
                   int-examples less-interesting more-interesting h22 interestingness restrictions
@@ -492,6 +491,17 @@
   (setf (fdefinition to) (fdefinition from))
   to)
 
+(defmacro errorset (form &optional flag)
+  "Run the form, returning NIL if it errored, or a list of its return value otherwise."
+  ;; TODO - In the original CL, this EVAL'd the form, here we're pushing that straight to the compiler
+  (unless (equal ''nobreak flag)
+    (error "Only NOBREAK flag supported in ERRORSET"))
+  `(multiple-value-bind (retval err) (ignore-errors (list (funcall ,form)))
+     (or retval
+         (progn
+           (cprin1 -1 "ERRORSET reported and ignored: " err "~%")
+           nil))))
+
 (defun listget (plist key)
   "Returns the associated value from the plist"
   (when (consp plist)
@@ -709,7 +719,7 @@
   (let ((f (pack* 'get-a-
                   (random-choose (getprop 'structure 'specializations)))))
     (cond
-      ((fboundp f) (apply f ov))
+      ((fboundp f) (funcall f ov))
       ;; Loop until we found a specialization with an implementation
       (t (get-a-struc ov)))))
 
@@ -1033,8 +1043,8 @@
             (put name 'worth 500)
             name))
     (define-if-slot name)
-    (and (symbol-function nold)
-         (not (symbol-function name))
+    (and (fboundp nold)
+         (not (fboundp name))
          ;;(movd nold name t) ;; T = if the src of the copy is a sexpr, cons up a new copy with the move
          (setf (symbol-function name) (symbol-function nold))
          ;; Note that these MOVD forms are never executed; I wonder if RLL does use them, though
@@ -2071,6 +2081,7 @@
   ;; ORIG: This is an aux fn of rule interpreters. We assume that the interpreter is being run on a rule called r, which is to be applied to a unit ArgU
   ;; ORIG: This function evaluates the s part of r, which is presumably a Then- part of some sort
   (let ((z (funcall s *rule*)))
+    (cprin1 90 " xeq-if-it-exists, rule " *rule* ", slot " s ", is " z "~%")
     (cond
       ((null z) t)
       ((my-time (lambda () (funcall z *arg-unit*)))

@@ -29,6 +29,8 @@
 (defvar *rule-cycle-time*) ;; TODO - only ever written once, never read, even in EUR
 (defvar *reas*) ;; TODO - only used in h24, never declared in EUR
 
+(defvar *temp-caches* '((REMPROP 'anything 'examples))) ;; TODO - only set in h11, never read
+
 ;; Big group of related ones
 (defvar *c-slot*) ;; also 'c-slot in applics?
 (defvar *c-slot-sibs*)
@@ -582,7 +584,7 @@
                                                always (funcall dt a))
                                          ;; TODO - orig (errorset '(apply *alg-to-use* (applic-args i)) 'nobreak)
                                          ;;  The 'nobreak portion disables breaks for timeout or something? not sure
-                                         (let ((temp (ignore-errors (apply *alg-to-use* (applic-args i)))))
+                                         (let ((temp (errorset (apply *alg-to-use* (applic-args i)) 'nobreak)))
                                            (union-prop *cur-unit* 'applics (list (applic-args i) (car temp))))))
                                 100))
                  (and (setf *new-values* (set-difference (applics *cur-unit*)
@@ -718,6 +720,7 @@
   english "IF the current task is to find application-instances of a unit f, and it has an Algorithm for computing its values, and it has a Domain, THEN choose examples of its domain component/s, and run the alg for f on such inputs"
   if-potentially-relevant null
   worth 700
+  ;; TODO - can we templatize this such that the context substitutes the varnames in these?
   abbrev "Applics (f) may be found by running Alg (f) on members of u's Domain)"
   if-working-on-task (lambda (task)
                        (declare (ignore task))
@@ -750,6 +753,7 @@
                                                   (count (getprop *cur-unit* *cur-slot*)))))
                    ;; TODO - only usage of this var ever, even in EUR
                    (setf *rule-cycle-time* (clock 0))
+                   ;; TODO - tuning values for the number of iterations in these different cases
                    (case (length *domain-tests*)
                      (0 (loop for j from 1 upto 100
                               do (and (not (known-applic *cur-unit* nil))
@@ -758,6 +762,9 @@
                                                   `(nil ,(funcall *alg-to-use* nil))))
                               until (rule-taking-too-long)
                               finally (setf n-tried j)))
+                     ;; TODO - this is a copy/paste optimization for length 1.
+                     ;;        If the first clause passes, then it special cases length 1,
+                     ;;        else it duplicates all of the 'otherwise' case here.
                      (1 (cond ((generator (car (domain *cur-unit*)))
                                (setf n-tried 0)
                                (map-examples (car (domain *cur-unit*))
@@ -798,9 +805,7 @@
                                                (let ((maybe-failed nil))
                                                  (union-prop *cur-unit* 'applics
                                                              (list args
-                                                                   ;; TODO - was (ERRORSET .. 'NOBREAK)
-                                                                   (car (setf maybe-failed (ignore-errors
-                                                                                            (apply *alg-to-use* args)))))
+                                                                   (car (setf maybe-failed (errorset (apply *alg-to-use* args) 'nobreak))))
                                                              nil
                                                              (setf maybe-failed (or (null maybe-failed)
                                                                                     (eq (car maybe-failed)
@@ -835,9 +840,11 @@
                                               (let ((maybe-failed nil))
                                                 (union-prop *cur-unit* 'applics
                                                             (list args
-                                                                  ;; TODO - was (ERRORSET .. 'NOBREAK)
-                                                                  (car (setf maybe-failed (ignore-errors
-                                                                                           (apply *alg-to-use* args)))))
+                                                                  ;; TODO - something is misaligned here with the alg-to-use
+                                                                  ;;        this fetches the lambda (or source), but nothing
+                                                                  ;;        calls it. There's no way this would return eq failed,
+                                                                  ;;        unless the lambda was actually invoked.
+                                                                  (car (setf maybe-failed (errorset (apply *alg-to-use* args) 'nobreak))))
                                                             nil
                                                             (setf maybe-failed (or (null maybe-failed)
                                                                                    (eq (car maybe-failed)
@@ -2049,6 +2056,7 @@
                                       'if-working-on-task)
                                   (not (eq 1 (rand 1 10)))))
   then-print-to-user (lambda (task)
+                       (declare (ignore task))
                        (cprin1 14 "~%Hm; I have had bad experiences in the past trying to find "
                                'generalizations " of units by altering their "
                                'if-working-on-task " slot, and this is similar; "
