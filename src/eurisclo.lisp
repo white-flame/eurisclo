@@ -1410,8 +1410,12 @@
 
 (defun map-examples (u f &optional (num-iterations 1000))
   ;; ORIG: This may have to generate examples, rather than merely calling Applics
+  ;; This was a cond with a large test which initializes all these variables in a big AND clause
+  ;; I'm not sure which ones are always-non-NIL initializers, vs tests, so I'm putting them all
+  ;; in a IF-LET. Since that's a parallel binding form, and there's no IF-LET*, need to pull out
+  ;; GEN since it's referenced in the other initializers
   (let ((gen (generator u)))
-    (if-let ((gen gen) ;; just to have it hit the IF-check
+    (if-let ((gen gen)
              (genf (gen-build gen))
              (gena (gen-args gen))
              ;; TODO - these next 3 were optional params, but nothing used them
@@ -1419,14 +1423,14 @@
              (max-real-time (* *cur-pri* *user-impatience*
                                (1+ (floor (+ 0.5 (log (max 2 (1+ *verbosity*))))))))
              (max-space (average *cur-pri* 500)))
-      (if (= 1 (length gena))
-          (loop initially (set (car gena) (car (gen-init gen)))
-                for j from 1 to num-iterations
-                until (or (taking-too-long j when-to-check max-real-time)
-                          (taking-too-much-space j when-to-check max-space u 'examples))
-                do (progn
-                     (funcall f (eval (car gena)))
-                     (set (car gena) (funcall (car genf) (eval (car gena))))))
+        (if (= 1 (length gena))
+            (loop initially (set (car gena) (car (gen-init gen)))
+                  for j from 1 to num-iterations
+                  until (or (taking-too-long j when-to-check max-real-time)
+                            (taking-too-much-space j when-to-check max-space u 'examples))
+                  do (progn
+                       (funcall f (eval (car gena)))
+                       (set (car gena) (funcall (car genf) (eval (car gena))))))
           (loop initially (mapc #'set gena (gen-init gen))
                 for j from 1 to num-iterations
                 until (or (taking-too-long j when-to-check max-real-time)
